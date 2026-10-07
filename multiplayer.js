@@ -48,6 +48,20 @@
   let linked = false;
   let simulates = false; // true = este cliente corre la física (autoridad)
   function setSim(v) { simulates = !!v; window.__mpSimulates = simulates; }
+  let username = localStorage.getItem('rp-username') || '';
+  let isPublicRoom = false;
+  let myCountry = null;
+  let myCountryCode = null;
+  // Math MP state
+  let myScore = 0;
+  let remoteScore = 0;
+  let remoteName = 'Rival';
+  let iAmAlive = true;
+  let remoteAlive = true;
+  let lastPlaceSince = 0;
+  let isSpectator = false;
+  let mathMpActive = false;
+  const LAST_PLACE_LIMIT = 20; // seconds
 
   let _q0 = null, _q1 = null;
   const _p0 = { x: 0, y: 0, z: 0 };
@@ -60,8 +74,118 @@
 
   function dbg(msg) {
     const el = document.getElementById('mp-debug');
-    if (el) el.textContent = msg;
+    if (el) {
+      const lines = [
+        msg,
+        'role=' + (role || '-') + ' sim=' + simulates + ' linked=' + linked,
+        'user=' + (username || '-') + ' pub=' + isPublicRoom,
+        'score me=' + myScore + ' remote=' + remoteScore,
+        'alive me=' + iAmAlive + ' remote=' + remoteAlive,
+        'spectator=' + isSpectator + ' mathMp=' + mathMpActive,
+        'pktIn=' + pktIn + ' pktOut=' + pktOut,
+      ];
+      if (lastPlaceSince > 0) {
+        const left = Math.max(0, LAST_PLACE_LIMIT - (performance.now() - lastPlaceSince) / 1000);
+        lines.push('LAST PLACE: ' + left.toFixed(1) + 's');
+      }
+      el.textContent = lines.join('\n');
+    }
     console.log('[mp]', msg);
+  }
+
+  function updateLeaderboard() {
+    ensureHud();
+    const lb = document.getElementById('mp-leaderboard');
+    const rows = document.getElementById('mp-lb-rows');
+    if (!lb || !rows) return;
+    if (!mathMpActive && !linked) {
+      lb.style.display = 'none';
+      return;
+    }
+    lb.style.display = 'block';
+    const meName = username || 'Tú';
+    const themName = remoteName || 'Rival';
+    const entries = [
+      { name: meName, score: myScore, alive: iAmAlive, me: true },
+      { name: themName, score: remoteScore, alive: remoteAlive, me: false },
+    ].sort((a, b) => b.score - a.score || (a.alive === b.alive ? 0 : a.alive ? -1 : 1));
+    rows.innerHTML = entries.map((e, i) => {
+      const rank = i + 1;
+      const dead = e.alive ? '' : ' <span style="color:#f66">(OUT)</span>';
+      const meMark = e.me ? ' <span style="color:#7dffc8">★</span>' : '';
+      const color = rank === 1 ? '#7dffc8' : (rank === entries.length && entries.length > 1 ? '#f86' : '#e8f0f8');
+      return '<div style="display:flex;justify-content:space-between;gap:12px;color:' + color + '">' +
+        '<span>#' + rank + ' ' + e.name + meMark + dead + '</span>' +
+        '<span style="font-variant-numeric:tabular-nums">' + e.score + '</span></div>';
+    }).join('');
+  }
+
+  function updateLastPlaceVisual() {
+    ensureHud();
+    const el = document.getElementById('mp-last-timer');
+    if (!el) return;
+    if (!mathMpActive || !iAmAlive || isSpectator || lastPlaceSince <= 0) {
+      el.style.display = 'none';
+      return;
+    }
+    const left = Math.max(0, LAST_PLACE_LIMIT - (performance.now() - lastPlaceSince) / 1000);
+    if (left <= 0) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'block';
+    el.textContent = '¡ÚLTIMO! ' + left.toFixed(1) + 's';
+    el.style.background = left < 5 ? 'rgba(180,10,10,.95)' : 'rgba(120,20,10,.92)';
+  }
+
+  function setSpectator(on) {
+    isSpectator = !!on;
+    ensureHud();
+    const ban = document.getElementById('mp-spectator-banner');
+    if (ban) ban.style.display = isSpectator ? 'block' : 'none';
+    if (isSpectator) {
+      // Hide own math UI if present
+      const mm = document.getElementById('mm-hud');
+      if (mm) mm.style.opacity = '0.35';
+    } else {
+      const mm = document.getElementById('mm-hud');
+      if (mm) mm.style.opacity = '1';
+    }
+    dbg(isSpectator ? 'SPECTATOR ON' : 'SPECTATOR OFF');
+  }
+
+  function explodeAndSpectate() {
+    if (!iAmAlive) return;
+    iAmAlive = false;
+    lastPlaceSince = 0;
+    setSpectator(true);
+    safeSend({ type: 'math-status', score: myScore, alive: false, name: username });
+    updateLeaderboard();
+    // Visual explode flash
+    const flash = document.createElement('div');
+    flash.style.cssText = 'position:fixed;inset:0;z-index:100;background:radial-gradient(circle,#ff4400,#000);opacity:0.85;pointer-events:none;transition:opacity .8s';
+    document.body.appendChild(flash);
+    setTimeout(function () { flash.style.opacity = '0'; }, 100);
+    setTimeout(function () { flash.remove(); }, 900);
+    dbg('EXPLODED — going spectator');
+  }
+
+  function checkLastPlace() {
+    if (!mathMpActive || !iAmAlive || isSpectator) return;
+    // Lowest score among living players is last. Tie → neither is "last" alone.
+    const bothAlive = iAmAlive && remoteAlive;
+    const iAmLast = bothAlive && myScore < remoteScore;
+    if (iAmLast) {
+      if (lastPlaceSince <= 0) lastPlaceSince = performance.now();
+      const elapsed = (performance.now() - lastPlaceSince) / 1000;
+      if (elapsed >= LAST_PLACE_LIMIT) {
+        explodeAndSpectate();
+      }
+    } else {
+      lastPlaceSince = 0;
+    }
+    updateLastPlaceVisual();
+    updateLeaderboard();
   }
 
   function ensureQuats(THREE) {
@@ -86,9 +210,30 @@
     if (!document.getElementById('mp-debug')) {
       const d = document.createElement('div');
       d.id = 'mp-debug';
-      d.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:90;max-width:92vw;padding:6px 10px;background:rgba(0,0,0,.75);color:#8f8;font:12px ui-monospace,monospace;border-radius:4px;pointer-events:none;';
+      d.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:90;max-width:min(420px,92vw);padding:8px 12px;background:rgba(0,0,0,.82);color:#8f8;font:12px ui-monospace,monospace;border-radius:4px;pointer-events:none;white-space:pre-wrap;line-height:1.35;border:1px solid rgba(100,200,120,.35);';
       d.textContent = 'mp: idle';
       document.body.appendChild(d);
+    }
+    if (!document.getElementById('mp-leaderboard')) {
+      const lb = document.createElement('div');
+      lb.id = 'mp-leaderboard';
+      lb.style.cssText = 'position:fixed;top:52px;left:8px;z-index:90;min-width:180px;padding:8px 12px;background:rgba(6,12,22,.9);color:#e8f0f8;font:600 13px system-ui,sans-serif;border-radius:4px;border:1px solid rgba(140,200,255,.3);pointer-events:none;display:none;';
+      lb.innerHTML = '<div style="font-size:11px;opacity:.7;margin-bottom:4px;letter-spacing:.08em">CLASIFICACIÓN</div><div id="mp-lb-rows"></div>';
+      document.body.appendChild(lb);
+    }
+    if (!document.getElementById('mp-last-timer')) {
+      const t = document.createElement('div');
+      t.id = 'mp-last-timer';
+      t.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:92;padding:12px 24px;background:rgba(120,20,10,.92);color:#ffe0d0;font:800 28px system-ui,sans-serif;border-radius:6px;border:2px solid #f44;pointer-events:none;display:none;text-align:center;text-shadow:0 2px 8px #000;';
+      t.textContent = '';
+      document.body.appendChild(t);
+    }
+    if (!document.getElementById('mp-spectator-banner')) {
+      const s = document.createElement('div');
+      s.id = 'mp-spectator-banner';
+      s.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:92;padding:8px 20px;background:rgba(20,40,80,.95);color:#aef;font:700 16px system-ui,sans-serif;border-radius:4px;border:1px solid rgba(100,180,255,.5);pointer-events:none;display:none;';
+      s.textContent = 'MODO ESPECTADOR';
+      document.body.appendChild(s);
     }
   }
 
@@ -151,6 +296,9 @@
         if (o.isMesh && o.material) {
           o.material = o.material.clone();
           if (o.material.color) o.material.color.setHex(0x2a6fd6);
+          o.material.transparent = true;
+          o.material.opacity = 0.5;
+          o.material.depthWrite = false;
         }
       });
       rs.scene.add(mesh2);
@@ -306,8 +454,15 @@
 
   function applyCamera(rs, data) {
     if (!data || !rs.updateCamera) return;
-    const mine = role === 'host' ? data.c0 : data.c1;
-    const rot = role === 'host' ? data.r0 : data.r1;
+    // Spectator: follow the other player's car (their POV)
+    let mine, rot;
+    if (isSpectator) {
+      mine = role === 'host' ? data.c1 : data.c0;
+      rot = role === 'host' ? data.r1 : data.r0;
+    } else {
+      mine = role === 'host' ? data.c0 : data.c1;
+      rot = role === 'host' ? data.r0 : data.r1;
+    }
     if (!mine || !rot) return;
     const now = performance.now();
     const dt = _lastCamT ? Math.min(0.05, (now - _lastCamT) / 1000) : 0.016;
@@ -482,10 +637,45 @@
       }
     } else if (data.type === 'hello') {
       setTopStatus(role === 'host' ? 'Visitante conectado' : 'Conectado');
-      dbg('hello from ' + (data.role || '?'));
+      if (data.name) remoteName = String(data.name).slice(0, 20);
+      dbg('hello from ' + (data.role || '?') + ' name=' + remoteName);
+      // Reply with our name
+      safeSend({ type: 'hello', role: role, name: username });
+      updateLeaderboard();
     } else if (data.type === 'math') {
       closeMenu();
+      mathMpActive = true;
+      myScore = 0;
+      remoteScore = 0;
+      iAmAlive = true;
+      remoteAlive = true;
+      lastPlaceSince = 0;
+      isSpectator = false;
+      setSpectator(false);
+      updateLeaderboard();
       if (typeof window.__startMathMode === 'function') window.__startMathMode('math');
+      dbg('math mode started (MP)');
+    } else if (data.type === 'math-status') {
+      if (typeof data.score === 'number') remoteScore = data.score;
+      if (typeof data.alive === 'boolean') remoteAlive = data.alive;
+      if (data.name) remoteName = String(data.name).slice(0, 20);
+      updateLeaderboard();
+      checkLastPlace();
+      dbg('remote math-status score=' + remoteScore + ' alive=' + remoteAlive);
+    } else if (data.type === 'math-cursor') {
+      // For spectator: show remote cursor
+      if (isSpectator && data.x != null && data.y != null) {
+        let cur = document.getElementById('mp-remote-cursor');
+        if (!cur) {
+          cur = document.createElement('div');
+          cur.id = 'mp-remote-cursor';
+          cur.style.cssText = 'position:fixed;width:18px;height:18px;border:2px solid #7dffc8;border-radius:50%;pointer-events:none;z-index:95;transform:translate(-50%,-50%);box-shadow:0 0 8px #7dffc8;';
+          document.body.appendChild(cur);
+        }
+        cur.style.left = (data.x * 100) + '%';
+        cur.style.top = (data.y * 100) + '%';
+        cur.style.display = 'block';
+      }
     }
   }
 
@@ -571,6 +761,11 @@
                 rs.carMesh2.quaternion.copy(_q1);
               }
             }
+            // Spectator on host: force camera to other car
+            if (isSpectator && cs && cs.pos && rs.updateCamera) {
+              const st = buildLocalState(rs);
+              if (st) applyCamera(rs, st);
+            }
           } catch (e) { /* ignore */ }
         }
         return;
@@ -636,7 +831,25 @@
         }
         dbg(role + ' out=' + pktOut + ' in=' + pktIn + ' age=' + Math.round(age));
       }
+
+      // Math MP: last-place check + visual refresh
+      if (mathMpActive) {
+        checkLastPlace();
+        updateLastPlaceVisual();
+        updateLeaderboard();
+      }
     }, 20);
+
+    // Cursor sharing for spectator POV
+    if (!window.__mpCursorBound) {
+      window.__mpCursorBound = true;
+      document.addEventListener('pointermove', function (e) {
+        if (!mathMpActive || !linked || isSpectator) return;
+        const x = e.clientX / window.innerWidth;
+        const y = e.clientY / window.innerHeight;
+        safeSend({ type: 'math-cursor', x: x, y: y });
+      }, { passive: true });
+    }
   }
 
   function stopLoops() {
@@ -652,14 +865,15 @@
       if (linked) return;
       linked = true;
       dbg('DATA CHANNEL OPEN role=' + role);
-      safeSend({ type: 'hello', role: role });
+      safeSend({ type: 'hello', role: role, name: username });
       closeMenu();
       if (role === 'host') {
         setTopStatus('Visitante conectado — ¡a jugar!');
         ensureMathButton();
       } else {
-        showTopBar('<span>Conectado al host</span><span data-mp-status>· jugando</span>');
+        showTopBar('<span>Conectado al host · ' + (username || '') + '</span><span data-mp-status>· jugando</span>');
       }
+      updateLeaderboard();
       waitRS().then(function (rs) {
         ensureSecondCar(rs);
         setTimeout(function () { createMesh2(rs); }, 1500);
@@ -695,7 +909,14 @@
     btn.onclick = function () {
       safeSend({ type: 'math' });
       closeMenu();
+      mathMpActive = true;
+      myScore = 0; remoteScore = 0;
+      iAmAlive = true; remoteAlive = true;
+      lastPlaceSince = 0; isSpectator = false;
+      setSpectator(false);
+      updateLeaderboard();
       if (typeof window.__startMathMode === 'function') window.__startMathMode('math');
+      dbg('math mode started locally (MP)');
     };
     document.body.appendChild(btn);
   }
@@ -716,14 +937,16 @@
     roomId = code;
     closeMenu();
     ensureHud();
+    const roomType = isPublicRoom ? 'Pública' : 'Privada';
     showTopBar(
-      '<span style="opacity:.75">Código</span>' +
+      '<span style="opacity:.75">' + roomType + '</span>' +
       '<span style="font:700 22px ui-monospace,monospace;letter-spacing:.2em;color:#7dffc8">' + code + '</span>' +
+      '<span style="opacity:.75">' + (username || '') + '</span>' +
       '<span data-mp-status style="opacity:.85">Creando sala…</span>',
       code
     );
     ensureMathButton();
-    dbg('starting host code=' + code);
+    dbg('starting host code=' + code + ' public=' + isPublicRoom + ' user=' + username);
 
     waitRS().then(function (rs) {
       ensureSecondCar(rs);
@@ -804,23 +1027,163 @@
   window.__mpStartMathBoth = function () {
     safeSend({ type: 'math' });
     closeMenu();
+    mathMpActive = true;
+    myScore = 0; remoteScore = 0;
+    iAmAlive = true; remoteAlive = true;
+    lastPlaceSince = 0; isSpectator = false;
+    setSpectator(false);
+    updateLeaderboard();
     if (typeof window.__startMathMode === 'function') window.__startMathMode('math');
+    dbg('math mode started both (MP)');
   };
+
+  // Exposed for mathmode.js to report score changes
+  window.__mpReportScore = function (score) {
+    if (typeof score === 'number') myScore = score;
+    safeSend({ type: 'math-status', score: myScore, alive: iAmAlive, name: username });
+    updateLeaderboard();
+    checkLastPlace();
+  };
+  window.__mpIsSpectator = function () { return isSpectator; };
+  window.__mpMathActive = function () { return mathMpActive; };
+
+  function ensureUsername(cb) {
+    if (username && username.trim().length >= 2) {
+      if (cb) cb();
+      return;
+    }
+    const name = prompt('Elige un nombre de usuario (se guardará permanentemente):', username || '');
+    if (name && name.trim().length >= 2) {
+      username = name.trim().slice(0, 20);
+      localStorage.setItem('rp-username', username);
+      if (cb) cb();
+    } else {
+      alert('Necesitas un nombre de al menos 2 caracteres.');
+    }
+  }
+
+  function fetchCountry(cb) {
+    if (myCountry) { if (cb) cb(); return; }
+    fetch('https://ipapi.co/json/')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        myCountry = j.country_name || j.country || '??';
+        myCountryCode = (j.country_code || '').toUpperCase();
+        if (cb) cb();
+      })
+      .catch(function () {
+        myCountry = '??';
+        myCountryCode = '';
+        if (cb) cb();
+      });
+  }
+
+  function countryFlag(code) {
+    if (!code || code.length !== 2) return '🏳️';
+    return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 - 65 + c.charCodeAt(0)));
+  }
+
+  function closeMatchPanel() {
+    const p = document.getElementById('mp-match-panel');
+    if (p) p.remove();
+  }
+
+  function openMatchPanel() {
+    closeMatchPanel();
+    ensureUsername(function () {
+      fetchCountry(function () {
+        const panel = document.createElement('div');
+        panel.id = 'mp-match-panel';
+        panel.innerHTML =
+          '<div class="mmp-card">' +
+          '  <div class="mmp-head"><h2>Multijugador</h2><button type="button" class="mmp-close" aria-label="Cerrar">×</button></div>' +
+          '  <div class="mmp-body">' +
+          '    <div class="mmp-user">' +
+          '      <input id="mmp-username" type="text" maxlength="20" value="' + (username || '').replace(/"/g, '&quot;') + '" placeholder="Nombre de usuario" />' +
+          '      <button type="button" id="mmp-save-user">Guardar</button>' +
+          '    </div>' +
+          '    <div class="mmp-sec">' +
+          '      <div class="mmp-sec-title">Crear partida</div>' +
+          '      <div class="mmp-actions">' +
+          '        <button type="button" class="primary" id="mmp-create-public">Pública</button>' +
+          '        <button type="button" id="mmp-create-private">Privada</button>' +
+          '      </div>' +
+          '    </div>' +
+          '    <div class="mmp-sec">' +
+          '      <div class="mmp-sec-title">Partidas públicas en curso</div>' +
+          '      <ul class="mmp-list" id="mmp-list"><li class="mmp-empty">Buscando partidas…</li></ul>' +
+          '      <button type="button" id="mmp-refresh" style="margin-top:6px;width:100%">Actualizar lista</button>' +
+          '    </div>' +
+          '    <div class="mmp-sec">' +
+          '      <div class="mmp-sec-title">Unirse con código (privada)</div>' +
+          '      <div class="mmp-code-row">' +
+          '        <input id="mmp-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="CÓDIGO" autocomplete="off" />' +
+          '        <button type="button" id="mmp-join-code">Unirse</button>' +
+          '      </div>' +
+          '    </div>' +
+          '  </div>' +
+          '</div>';
+        document.body.appendChild(panel);
+
+        panel.querySelector('.mmp-close').onclick = closeMatchPanel;
+        panel.addEventListener('click', function (e) { if (e.target === panel) closeMatchPanel(); });
+
+        panel.querySelector('#mmp-save-user').onclick = function () {
+          const v = panel.querySelector('#mmp-username').value.trim().slice(0, 20);
+          if (v.length >= 2) {
+            username = v;
+            localStorage.setItem('rp-username', username);
+            alert('Nombre guardado: ' + username);
+          } else {
+            alert('Mínimo 2 caracteres.');
+          }
+        };
+
+        panel.querySelector('#mmp-create-public').onclick = function () {
+          isPublicRoom = true;
+          closeMatchPanel();
+          startHost();
+        };
+        panel.querySelector('#mmp-create-private').onclick = function () {
+          isPublicRoom = false;
+          closeMatchPanel();
+          startHost();
+        };
+
+        panel.querySelector('#mmp-join-code').onclick = function () {
+          const code = panel.querySelector('#mmp-code').value;
+          closeMatchPanel();
+          startGuest(code);
+        };
+        panel.querySelector('#mmp-code').addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            closeMatchPanel();
+            startGuest(panel.querySelector('#mmp-code').value);
+          }
+        });
+
+        panel.querySelector('#mmp-refresh').onclick = function () {
+          refreshPublicList(panel.querySelector('#mmp-list'));
+        };
+
+        refreshPublicList(panel.querySelector('#mmp-list'));
+      });
+    });
+  }
+
+  // Lista de partidas públicas: sin servidor de descubrimiento real se muestra vacío
+  // (las privadas usan código; las públicas generan código visible en la barra superior).
+  function refreshPublicList(ul) {
+    if (!ul) return;
+    ul.innerHTML = '<li class="mmp-empty">No hay servidor de listado de partidas.<br>Las públicas muestran el código en la barra superior: compártelo.<br>Usa el campo de código para unirte (pública o privada).</li>';
+  }
 
   function bindUI() {
     ensureHud();
-    const hostBtn = document.getElementById('host-button');
-    const joinBtn = document.getElementById('join-button');
-    const joinCode = document.getElementById('join-code');
-    if (hostBtn) hostBtn.addEventListener('click', function () { startHost(); });
-    if (joinBtn) joinBtn.addEventListener('click', function () { startGuest(joinCode && joinCode.value); });
-    if (joinCode) {
-      joinCode.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') startGuest(joinCode.value);
-      });
-    }
+    const matchBtn = document.getElementById('mp-match-button');
+    if (matchBtn) matchBtn.addEventListener('click', function () { openMatchPanel(); });
     document.addEventListener('visibilitychange', onVisibility);
-    dbg('ui bound, Peer=' + (typeof Peer !== 'undefined' ? 'ok' : 'MISSING'));
+    dbg('ui bound, Peer=' + (typeof Peer !== 'undefined' ? 'ok' : 'MISSING') + ', user=' + (username || '(none)'));
   }
 
   if (document.readyState === 'loading') {

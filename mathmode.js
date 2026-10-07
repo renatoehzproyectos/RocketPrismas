@@ -1107,7 +1107,15 @@ const MathMode = {
   renderScore() { const s = this.s; Hud.r.score.innerHTML = `<b>${s.score}</b> <span>puntos</span> · Boost <b>${s.streak}</b> <span>racha</span> · <span>aciertos</span> <b>${s.correct}</b>`; },
   controls(ctl) { if (this.s.punishT > 0) ctl.boost = false; },
   update(dt, st) {
-    const s = this.s; if (s.busy) return;
+    const s = this.s;
+    // Spectator: still show world but don't process hits / rewards
+    const spec = typeof window.__mpIsSpectator === 'function' && window.__mpIsSpectator();
+    if (s.busy || spec) {
+      // Still update timers visually if needed
+      if (s.rewardT > 0) s.rewardT -= dt;
+      if (s.punishT > 0) s.punishT -= dt;
+      return;
+    }
     if (s.rewardT > 0) { s.rewardT -= dt; if (s.rewardT <= 0) { RS.setInfBoost(false); Hud.toast('Se acabó el boost infinito', 'info'); } }
     if (s.punishT > 0) {
       s.punishT -= dt; const v = st.carVel, sp = Math.hypot(v.x, v.y);
@@ -1146,6 +1154,10 @@ const MathMode = {
       Hud.toast('<b>CASTIGO</b> · Sin boost y velocidad limitada 12 s · −25 puntos', 'bad', 3400);
     }
     s.round++; s.busy = false; this.newRound(); this.renderStatus();
+    // Report score to multiplayer if active
+    if (typeof window.__mpReportScore === 'function') {
+      window.__mpReportScore(s.score);
+    }
   },
 };
 

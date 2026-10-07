@@ -165,72 +165,18 @@
   bottom: 37.5%;
   animation-delay: 0s;
 }
-#host-button {
+#mp-match-button {
   bottom: calc(37.5% + 1 * (var(--bh) + var(--bgap)));
   animation-delay: .06s;
   background: linear-gradient(180deg, rgba(40, 170, 120, .96), rgba(18, 110, 75, .96));
 }
-#host-button::after { background: rgba(30, 140, 95, .45); }
-#host-button:hover,
-#host-button:focus-visible {
+#mp-match-button::after { background: rgba(30, 140, 95, .45); }
+#mp-match-button:hover,
+#mp-match-button:focus-visible {
   background: linear-gradient(180deg, rgba(50, 190, 135, .98), rgba(24, 130, 90, .98));
 }
 
-/* Fila de unirse (input + botón) justo encima del host */
-#start-menu .join-row {
-  position: absolute;
-  left: clamp(24px, 6vw, 112px);
-  bottom: calc(37.5% + 2 * (var(--bh) + var(--bgap)));
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  transform: skewX(-9deg);
-  animation: menuIn .5s cubic-bezier(.2, .9, .3, 1) .1s both;
-  width: clamp(240px, 22vw, 400px);
-}
 
-#start-menu #join-code {
-  flex: 1;
-  min-width: 0;
-  height: calc(var(--bh) * 0.72);
-  padding: 0 14px;
-  border: 1px solid rgba(193, 236, 255, .55);
-  border-radius: 0;
-  background: rgba(8, 20, 36, .92);
-  color: #e8f4ff;
-  font-size: clamp(16px, 1.5vw, 22px);
-  font-family: ui-monospace, "Roboto Mono", monospace;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-align: center;
-  transform: skewX(9deg);
-}
-
-#start-menu #join-code::placeholder {
-  color: rgba(180, 210, 230, .45);
-  letter-spacing: 0.08em;
-  font-weight: 500;
-}
-
-#join-button {
-  position: relative !important;
-  left: auto !important;
-  bottom: auto !important;
-  width: auto !important;
-  min-width: 110px;
-  height: calc(var(--bh) * 0.72) !important;
-  padding: 0 18px !important;
-  transform: none !important;
-  animation: none !important;
-}
-#join-button span {
-  transform: skewX(9deg);
-  font-size: clamp(14px, 1.3vw, 20px) !important;
-}
-#join-button:hover,
-#join-button:focus-visible {
-  transform: translateX(4px) !important;
-}
 
 #math-button {
   bottom: calc(37.5% + 3 * (var(--bh) + var(--bgap)));

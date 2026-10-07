@@ -268,3 +268,159 @@ body.mm-punish::after { content: ""; position: fixed; inset: 0; z-index: 99; poi
   .cv-scene { min-height: 70px; }
   .mp-vtools { padding: 4px 6px; }
 }
+
+/* Panel de emparejamiento (estilo modo matemáticas / tutorial) */
+#mp-match-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 12, 11, .82);
+  font-family: var(--sans);
+  color: var(--ink);
+  pointer-events: auto;
+}
+#mp-match-panel .mmp-card {
+  width: min(420px, 94vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.55);
+}
+#mp-match-panel .mmp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--line);
+}
+#mp-match-panel .mmp-head h2 {
+  margin: 0;
+  font: 700 16px var(--serif);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+#mp-match-panel .mmp-close {
+  background: none;
+  border: 0;
+  color: var(--mute);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+#mp-match-panel .mmp-close:hover { color: var(--ink); }
+#mp-match-panel .mmp-body { padding: 12px 14px; }
+#mp-match-panel .mmp-sec {
+  margin-bottom: 14px;
+}
+#mp-match-panel .mmp-sec-title {
+  font: 700 12px var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ochre);
+  margin: 0 0 8px;
+}
+#mp-match-panel .mmp-user {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+#mp-match-panel .mmp-user input {
+  flex: 1;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--ink);
+  font: 600 14px var(--sans);
+}
+#mp-match-panel .mmp-user button,
+#mp-match-panel .mmp-actions button,
+#mp-match-panel .mmp-list button {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel2);
+  color: var(--ink);
+  font: 600 13px var(--sans);
+  cursor: pointer;
+}
+#mp-match-panel .mmp-user button:hover,
+#mp-match-panel .mmp-actions button:hover,
+#mp-match-panel .mmp-list button:hover {
+  background: var(--ochre);
+  color: var(--bg);
+  border-color: var(--ochre);
+}
+#mp-match-panel .mmp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+#mp-match-panel .mmp-actions .primary {
+  background: var(--moss);
+  border-color: var(--moss);
+  color: var(--bg);
+}
+#mp-match-panel .mmp-actions .primary:hover {
+  background: var(--moss-d);
+  border-color: var(--moss-d);
+  color: var(--ink);
+}
+#mp-match-panel .mmp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-height: 60px;
+}
+#mp-match-panel .mmp-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 2px;
+  margin-bottom: 6px;
+  background: var(--bg);
+}
+#mp-match-panel .mmp-list .mmp-empty {
+  color: var(--mute);
+  font-size: 13px;
+  text-align: center;
+  padding: 16px 8px;
+  border: 1px dashed var(--line);
+}
+#mp-match-panel .mmp-flag {
+  font-size: 18px;
+  margin-right: 6px;
+}
+#mp-match-panel .mmp-meta {
+  font-size: 12px;
+  color: var(--mute);
+}
+#mp-match-panel .mmp-code-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+#mp-match-panel .mmp-code-row input {
+  flex: 1;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--ink);
+  font: 700 16px var(--mono);
+  letter-spacing: .15em;
+  text-align: center;
+}
