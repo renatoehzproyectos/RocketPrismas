@@ -46,6 +46,8 @@
   let netTimer = null;
   let rafId = 0;
   let linked = false;
+  let simulates = false; // true = este cliente corre la física (autoridad)
+  function setSim(v) { simulates = !!v; window.__mpSimulates = simulates; }
 
   let _q0 = null, _q1 = null;
   const _p0 = { x: 0, y: 0, z: 0 };
@@ -302,21 +304,97 @@
     }
   }
 
-  function applyGuestCamera(rs, data) {
-    if (!data || !rs.updateCamera || !data.c1 || !data.r1) return;
+  function applyCamera(rs, data) {
+    if (!data || !rs.updateCamera) return;
+    const mine = role === 'host' ? data.c0 : data.c1;
+    const rot = role === 'host' ? data.r0 : data.r1;
+    if (!mine || !rot) return;
     const now = performance.now();
     const dt = _lastCamT ? Math.min(0.05, (now - _lastCamT) / 1000) : 0.016;
     _lastCamT = now;
-    _camPos[0] = data.c1[0];
-    _camPos[1] = data.c1[1];
-    _camPos[2] = data.c1[2];
-    _camFwd[0] = data.r1[0];
-    _camFwd[1] = data.r1[1];
-    _camFwd[2] = data.r1[2];
+    _camPos[0] = mine[0]; _camPos[1] = mine[1]; _camPos[2] = mine[2];
+    _camFwd[0] = rot[0]; _camFwd[1] = rot[1]; _camFwd[2] = rot[2];
     _camBall[0] = data.b ? data.b[0] : 0;
     _camBall[1] = data.b ? data.b[1] : 0;
     _camBall[2] = data.b ? data.b[2] : 0;
-    rs.updateCamera(rs.camera, _camPos, _camFwd, data.r1[8] || 0, _camBall, !!data.c1[7], dt);
+    rs.updateCamera(rs.camera, _camPos, _camFwd, rot[8] || 0, _camBall, !!mine[7], dt);
+  }
+
+  // Estado completo desde la física local (cuando este cliente tiene la autoridad pero dibuja mp).
+  function buildLocalState(rs) {
+    const M = rs.Module;
+    if (rs.carId2 == null) return null;
+    const b = M.getBallState(), a = M.getCarState(rs.carId), c = M.getCarState(rs.carId2);
+    if (!b || !a || !c) return null;
+    return {
+      b: [b.pos.x, b.pos.y, b.pos.z],
+      c0: [a.pos.x, a.pos.y, a.pos.z, 0, 0, 0, 0, a.isOnGround ? 1 : 0], r0: rot9FromCar(a),
+      c1: [c.pos.x, c.pos.y, c.pos.z, 0, 0, 0, 0, c.isOnGround ? 1 : 0], r1: rot9FromCar(c),
+    };
+  }
+
+  // ---- Traspaso de autoridad (host oculto -> visitante simula; el host vuelve -> la recupera) ----
+  function takeSnap(rs) {
+    const M = rs.Module;
+    ensureSecondCar(rs);
+    const b = M.getBallState();
+    const cars = [rs.carId, rs.carId2].map(function (id) {
+      const cs = M.getCarState(id), r = rot9FromCar(cs);
+      return [cs.pos.x, cs.pos.y, cs.pos.z, cs.vel.x, cs.vel.y, cs.vel.z, cs.boost || 0, Math.atan2(r[1], r[0])];
+    });
+    return { b: [b.pos.x, b.pos.y, b.pos.z, b.vel.x, b.vel.y, b.vel.z], c: cars };
+  }
+
+  function applySnap(rs, snap) {
+    const M = rs.Module;
+    ensureSecondCar(rs);
+    if (!snap) {
+      // Sin snapshot (p. ej. el host se colgó): reconstruir posiciones desde el último estado de red.
+      if (!netState) return;
+      snap = {
+        b: [netState.b[0], netState.b[1], netState.b[2], 0, 0, 0],
+        c: [
+          [netState.c0[0], netState.c0[1], netState.c0[2], 0, 0, 0, 100, Math.atan2(netState.r0[1], netState.r0[0])],
+          [netState.c1[0], netState.c1[1], netState.c1[2], 0, 0, 0, 100, Math.atan2(netState.r1[1], netState.r1[0])],
+        ],
+      };
+    }
+    try {
+      M.setBallState(snap.b[0], snap.b[1], snap.b[2], snap.b[3], snap.b[4], snap.b[5]);
+      [rs.carId, rs.carId2].forEach(function (id, i) {
+        const c = snap.c[i];
+        M.setCarPose(id, c[0], c[1], c[2], c[7], c[3], c[4], c[5]);
+        try { M.setCarBoost(id, c[6]); } catch (e) {}
+      });
+    } catch (e) { dbg('applySnap err: ' + e.message); }
+  }
+
+  function becomeAuthority(rs, snap, why) {
+    applySnap(rs, snap);
+    remoteControls = { throttle: 0, steer: 0, pitch: 0, yaw: 0, roll: 0, jump: false, boost: false, handbrake: false };
+    window.__mpRemoteControls = remoteControls;
+    lastPktInAt = performance.now();
+    setSim(true);
+    setTopStatus(role === 'host' ? 'Volviste a ser host' : 'Ahora tú llevas la partida (' + why + ')');
+    dbg('AUTHORITY -> me (' + role + ') ' + why);
+  }
+
+  function handOver(rs) {
+    if (!linked || !simulates || !conn) return;
+    const snap = takeSnap(rs);
+    setSim(false);
+    safeSend({ type: 'auth', owner: role === 'host' ? 'guest' : 'host', snap: snap });
+    dbg('AUTHORITY -> other');
+  }
+
+  function onVisibility() {
+    const rs = window.RS;
+    if (!rs || !linked) return;
+    if (document.hidden) {
+      handOver(rs);
+    } else if (role === 'host' && !simulates) {
+      safeSend({ type: 'reclaim' });
+    }
   }
 
   function safeSend(msg) {
@@ -361,7 +439,7 @@
 
     // Controles compactos: ['c', thr100, str100, ...]
     if (Array.isArray(data) && data[0] === 'c') {
-      if (role === 'host') {
+      if (simulates) {
         remoteControls = unpackControlsMsg(data);
         window.__mpRemoteControls = remoteControls;
         pktIn++;
@@ -372,7 +450,7 @@
 
     // Estado compacto: ['s', ...]
     if (Array.isArray(data) && data[0] === 's') {
-      if (role === 'guest') {
+      if (!simulates) {
         netState = unpackStateArr(data);
         if (netState) {
           pktIn++;
@@ -384,12 +462,19 @@
 
     if (typeof data !== 'object' || Array.isArray(data)) return;
 
-    if (data.type === 'controls' && role === 'host') {
+    if (data.type === 'auth') {
+      const rs = window.RS;
+      if (!rs) return;
+      if (data.owner === role) becomeAuthority(rs, data.snap, role === 'host' ? 'vuelta' : 'host oculto');
+      else setSim(false);
+    } else if (data.type === 'reclaim') {
+      if (simulates && window.RS) handOver(window.RS);
+    } else if (data.type === 'controls' && simulates) {
       remoteControls = unpackControlsMsg(data);
       window.__mpRemoteControls = remoteControls;
       pktIn++;
       lastPktInAt = performance.now();
-    } else if (data.type === 'state' && role === 'guest') {
+    } else if (data.type === 'state' && !simulates) {
       if (data.s) {
         netState = data.s;
         pktIn++;
@@ -456,20 +541,12 @@
 
     let lastCtlSend = 0;
 
+    function otherCarId() { return role === 'host' ? rs.carId2 : rs.carId; }
+
     function mpControls(ctl) {
-      // Host: aplicar inputs del visitante justo antes del step de física
-      if (role === 'host' && rs.carId2 != null) {
-        const rc = remoteControls;
-        try {
-          rs.Module.setCarControls(
-            rs.carId2,
-            rc.throttle, rc.steer, rc.pitch, rc.yaw, rc.roll,
-            !!rc.jump, !!rc.boost, !!rc.handbrake
-          );
-        } catch (e) { /* ignore */ }
-      }
-      // Guest: enviar controles en el mismo momento en que se leen
-      if (role === 'guest' && linked && conn) {
+      if (!linked || !conn) return;
+      if (!simulates) {
+        // Sin autoridad: enviar mis controles a quien simula
         const now = performance.now();
         if (now - lastCtlSend >= 16) {
           lastCtlSend = now;
@@ -479,26 +556,30 @@
     }
 
     function mpFrame() {
-      // Host: dibujar auto del visitante
-      if (role === 'host' && rs.carId2 != null) {
-        ensureSecondCar(rs);
-        try {
-          ensureQuats(rs.THREE);
-          const cs = rs.Module.getCarState(rs.carId2);
-          if (cs && cs.pos && rs.carMesh2 && _q1) {
-            rs.rsToThreeInto(cs.pos.x, cs.pos.y, cs.pos.z, _p1);
-            rs.carMesh2.position.set(_p1.x, _p1.y, _p1.z);
-            if (rs.rsRotToThreeQuat) {
-              rs.rsRotToThreeQuat(rot9FromCar(cs), _q1);
-              rs.carMesh2.quaternion.copy(_q1);
+      if (role === 'host' && simulates) {
+        // Host con autoridad: game.js dibuja todo salvo el auto del visitante
+        if (rs.carId2 != null) {
+          ensureSecondCar(rs);
+          try {
+            ensureQuats(rs.THREE);
+            const cs = rs.Module.getCarState(rs.carId2);
+            if (cs && cs.pos && rs.carMesh2 && _q1) {
+              rs.rsToThreeInto(cs.pos.x, cs.pos.y, cs.pos.z, _p1);
+              rs.carMesh2.position.set(_p1.x, _p1.y, _p1.z);
+              if (rs.rsRotToThreeQuat) {
+                rs.rsRotToThreeQuat(rot9FromCar(cs), _q1);
+                rs.carMesh2.quaternion.copy(_q1);
+              }
             }
-          }
-        } catch (e) { /* ignore */ }
+          } catch (e) { /* ignore */ }
+        }
+        return;
       }
-      // Guest: aplicar estado de red justo antes del render
-      if (role === 'guest' && netState) {
-        try { applyMeshes(rs, netState); applyGuestCamera(rs, netState); } catch (e) { dbg('apply err: ' + e.message); }
-      }
+      // Resto de casos: dibujar desde la física local (visitante con autoridad) o desde la red
+      try {
+        const st = simulates ? buildLocalState(rs) : netState;
+        if (st) { applyMeshes(rs, st); applyCamera(rs, st); }
+      } catch (e) { dbg('apply err: ' + e.message); }
     }
 
     // mathmode.js reasigna RS.hooks.controls / RS.hooks.frame; con accesores, su función
@@ -529,48 +610,33 @@
       const rs = window.RS;
       if (!rs || !linked || !conn) return;
 
-      if (role === 'host') {
+      if (simulates) {
         ensureSecondCar(rs);
         if (lastPktInAt && performance.now() - lastPktInAt > 600) {
           remoteControls = { throttle: 0, steer: 0, pitch: 0, yaw: 0, roll: 0, jump: false, boost: false, handbrake: false };
           window.__mpRemoteControls = remoteControls;
         }
-        if (rs.carId2 != null) {
+        const oid = role === 'host' ? rs.carId2 : rs.carId;
+        if (oid != null) {
           const rc = remoteControls;
           try {
-            rs.Module.setCarControls(
-              rs.carId2,
-              rc.throttle, rc.steer, rc.pitch, rc.yaw, rc.roll,
-              !!rc.jump, !!rc.boost, !!rc.handbrake
-            );
+            rs.Module.setCarControls(oid, rc.throttle, rc.steer, rc.pitch, rc.yaw, rc.roll, !!rc.jump, !!rc.boost, !!rc.handbrake);
           } catch (e) { /* ignore */ }
         }
         const packed = packStateArr(rs);
         if (packed) safeSend(packed);
-        if (document.hidden) setTopStatus('⚠ Deja esta pestaña visible: si está en segundo plano la partida se congela');
-        dbg('host out=' + pktOut + ' in=' + pktIn + ' thr=' + remoteControls.throttle.toFixed(2) + ' str=' + remoteControls.steer.toFixed(2));
-      }
-
-      if (role === 'guest') {
-        const msg = packControlsMsg(rs.ctl);
-        safeSend(msg);
-        const age = lastPktInAt ? Math.round(performance.now() - lastPktInAt) : -1;
-        const c1z = netState && netState.c1 ? Math.round(netState.c1[1]) : '?';
-        const lt = rs.ctl ? (+rs.ctl.throttle || 0).toFixed(2) : '?';
-        dbg('guest out=' + pktOut + ' in=' + pktIn + ' age=' + age + ' lt=' + lt + ' c1y=' + c1z);
+        dbg(role + '(AUTH) out=' + pktOut + ' in=' + pktIn + ' thr=' + remoteControls.throttle.toFixed(2));
+      } else {
+        // Sin autoridad: controles (en cero si mi pestaña está oculta, para no dejar teclas pegadas)
+        safeSend(document.hidden ? packControlsMsg(null) : packControlsMsg(rs.ctl));
+        // Watchdog: el host dejó de enviar sin avisar (se colgó) y yo estoy visible -> tomo la partida
+        const age = lastPktInAt ? performance.now() - lastPktInAt : 0;
+        if (role === 'guest' && !document.hidden && netState && age > 2500) {
+          becomeAuthority(rs, null, 'host sin respuesta');
+        }
+        dbg(role + ' out=' + pktOut + ' in=' + pktIn + ' age=' + Math.round(age));
       }
     }, 20);
-
-    // Backup: por si hooks no corren, seguir aplicando en rAF
-    function tick() {
-      rafId = requestAnimationFrame(tick);
-      if (role !== 'guest' || !netState) return;
-      const rs = window.RS;
-      if (!rs) return;
-      applyMeshes(rs, netState);
-      applyGuestCamera(rs, netState);
-    }
-    rafId = requestAnimationFrame(tick);
   }
 
   function stopLoops() {
@@ -644,6 +710,7 @@
 
   function startHost() {
     role = 'host';
+    setSim(true);
     window.__mpRole = 'host';
     const code = makeRoomCode();
     roomId = code;
@@ -706,6 +773,7 @@
       return;
     }
     role = 'guest';
+    setSim(false);
     window.__mpRole = 'guest';
     ensureHud();
     showTopBar(
@@ -751,6 +819,7 @@
         if (e.key === 'Enter') startGuest(joinCode.value);
       });
     }
+    document.addEventListener('visibilitychange', onVisibility);
     dbg('ui bound, Peer=' + (typeof Peer !== 'undefined' ? 'ok' : 'MISSING'));
   }
 

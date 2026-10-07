@@ -1678,17 +1678,20 @@ async function main() {
     if (HOOKS.controls) HOOKS.controls(ctl, dt);
     // Multijugador: el visitante no aplica controles locales a la física (el host es autoridad).
     // El host aplica los suyos aquí; los del visitante se aplican desde multiplayer.js al carId2.
-    if (!window.__mpRole || window.__mpRole === 'host') {
-      Module.setCarControls(
-        carId, ctl.throttle, ctl.steer, ctl.pitch, ctl.yaw, ctl.roll, ctl.jump, ctl.boost, ctl.handbrake
-      );
-      // Multijugador: aplicar controles del visitante al 2.º auto en el MISMO frame que el step
+    // Multijugador: 'host'/'guest' es la identidad; quien tiene la autoridad (mpSim) corre la física.
+    // La autoridad pasa al visitante si la pestaña del host se oculta (ver multiplayer.js).
+    const mpRole = window.__mpRole;
+    const mpSim = !mpRole || window.__mpSimulates !== false;
+    const mpDraw = !!mpRole && !(mpRole === 'host' && mpSim); // multiplayer.js dibuja meshes/cámara
+    if (mpSim) {
       const rc = window.__mpRemoteControls;
-      const id2 = (window.RS && window.RS.carId2 != null) ? window.RS.carId2 : window.__mpCarId2;
-      if (window.__mpRole === 'host' && rc && id2 != null) {
-        Module.setCarControls(
-          id2, rc.throttle, rc.steer, rc.pitch, rc.yaw, rc.roll, rc.jump, rc.boost, rc.handbrake
-        );
+      const id2 = window.__mpCarId2;
+      if (mpRole === 'guest') {
+        if (id2 != null) Module.setCarControls(id2, ctl.throttle, ctl.steer, ctl.pitch, ctl.yaw, ctl.roll, ctl.jump, ctl.boost, ctl.handbrake);
+        if (rc) Module.setCarControls(carId, rc.throttle, rc.steer, rc.pitch, rc.yaw, rc.roll, rc.jump, rc.boost, rc.handbrake);
+      } else {
+        Module.setCarControls(carId, ctl.throttle, ctl.steer, ctl.pitch, ctl.yaw, ctl.roll, ctl.jump, ctl.boost, ctl.handbrake);
+        if (mpRole === 'host' && rc && id2 != null) Module.setCarControls(id2, rc.throttle, rc.steer, rc.pitch, rc.yaw, rc.roll, rc.jump, rc.boost, rc.handbrake);
       }
     }
 
@@ -1705,13 +1708,12 @@ async function main() {
     // es perfecta en esos frames raros, pero es mucho mejor que tener GC spikes
     // visibles. La mayoría de frames siguen teniendo ticks=1 o 2 y se ven fluidos.
     // Visitante: no simula física local (el host es autoridad). Solo acumula dt para render.
-    const isGuest = window.__mpRole === 'guest';
-    if (!isGuest) {
+    if (mpSim) {
       while (acc >= TICK_TIME && ticks < 8) {
         Module.step(1);
         containCar();
         // Multijugador: el 2.º auto (visitante) también debe quedar dentro de la cancha.
-        if (window.__mpRole === 'host' && window.__mpCarId2 != null) {
+        if (mpRole && window.__mpCarId2 != null) {
           const c2 = Module.getCarState(window.__mpCarId2);
           if (c2 && c2.pos) containCar(window.__mpCarId2, c2.pos);
         }
@@ -1809,7 +1811,7 @@ async function main() {
     }
 
     // Visitante: meshes/cámara los pinta multiplayer.js desde el estado de red (HOOKS.frame).
-    if (!isGuest) {
+    if (!mpDraw) {
       rsToThreeInto(ballPosUU.x, ballPosUU.y, ballPosUU.z, bp3);
       ball.position.set(bp3.x, bp3.y, bp3.z);
       ball.quaternion.copy(ballVisQuat);

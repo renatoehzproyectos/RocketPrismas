@@ -102,13 +102,13 @@ function matAdd(color, opacity = 1) {
   return new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
 }
 
-function shock(x, y, color = 0x66ddff, radiusUU = 700, dur = 0.8) {
+function shock(x, y, color = 0x7f9db5, radiusUU = 700, dur = 0.8) {
   const geo = new THREE.RingGeometry(0.9, 1, 64); geo.rotateX(-Math.PI / 2);
   const mesh = new THREE.Mesh(geo, matAdd(color, 0.95)); const p = U(x, y, 4); mesh.position.set(p.x, p.y, p.z);
   let t = 0; Fx.add(mesh, (dt) => { t += dt / dur; if (t >= 1) return false; const s = (0.15 + easeOut(t)) * radiusUU * M; mesh.scale.set(s, 1, s); mesh.material.opacity = 0.95 * (1 - t); });
 }
 
-function burst(x, y, z, color = 0xffd23a, n = 70, speed = 22, life = 1.2) {
+function burst(x, y, z, color = 0xd9a441, n = 70, speed = 22, life = 1.2) {
   const pos = new Float32Array(n * 3), vel = [];
   const p0 = U(x, y, z);
   for (let i = 0; i < n; i++) {
@@ -128,7 +128,7 @@ function burst(x, y, z, color = 0xffd23a, n = 70, speed = 22, life = 1.2) {
   });
 }
 
-function labelSprite(text, { size = 2.2, color = '#ffffff', glow = '#4cf', bg = null } = {}) {
+function labelSprite(text, { size = 2.2, color = '#ffffff', glow = '#6f93ad', bg = null } = {}) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 128;
   const g = c.getContext('2d'); g.font = '900 64px "Arial Narrow", Impact, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   if (bg) { g.fillStyle = bg; g.fillRect(0, 8, 512, 112); }
@@ -138,7 +138,7 @@ function labelSprite(text, { size = 2.2, color = '#ffffff', glow = '#4cf', bg = 
   sp.scale.set(size * 4, size, 1); sp.renderOrder = 20; return sp;
 }
 
-function makeGate({ x, y, z = 260, r = 260, yaw = Math.PI / 2, color = 0x39d0ff }) {
+function makeGate({ x, y, z = 260, r = 260, yaw = Math.PI / 2, color = 0x6f93ad }) {
   const g = new THREE.Group(), R = r * M;
   const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.22, 12, 64), matAdd(color, 0.95));
   const disc = new THREE.Mesh(new THREE.CircleGeometry(R, 48), matAdd(color, 0.1));
@@ -156,7 +156,7 @@ function makeGate({ x, y, z = 260, r = 260, yaw = Math.PI / 2, color = 0x39d0ff 
   return st;
 }
 
-function makeZone({ x, y, r = 260, color = 0x39d0ff, beam = true, text = null }) {
+function makeZone({ x, y, r = 260, color = 0x6f93ad, beam = true, text = null }) {
   const g = new THREE.Group(), R = r * M;
   const ringGeo = new THREE.RingGeometry(R * 0.92, R, 64); ringGeo.rotateX(-Math.PI / 2);
   const fillGeo = new THREE.CircleGeometry(R, 48); fillGeo.rotateX(-Math.PI / 2);
@@ -196,7 +196,7 @@ function makeArena(hx, hy) {
   const wallMat = () => new THREE.MeshBasicMaterial({ map: wt, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
   const mk = (w, px, pz, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), wallMat()); m.position.set(px, H / 2, pz); m.rotation.y = ry; g.add(m); };
   mk(W, 0, -D / 2, 0); mk(W, 0, D / 2, 0); mk(D, -W / 2, 0, Math.PI / 2); mk(D, W / 2, 0, Math.PI / 2);
-  const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-W / 2, 0.1, -D / 2), new THREE.Vector3(W / 2, 0.1, -D / 2), new THREE.Vector3(W / 2, 0.1, D / 2), new THREE.Vector3(-W / 2, 0.1, D / 2)]), new THREE.LineBasicMaterial({ color: 0x7fe3ff, toneMapped: false }));
+  const edge = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-W / 2, 0.1, -D / 2), new THREE.Vector3(W / 2, 0.1, -D / 2), new THREE.Vector3(W / 2, 0.1, D / 2), new THREE.Vector3(-W / 2, 0.1, D / 2)]), new THREE.LineBasicMaterial({ color: 0x8aa6bb, toneMapped: false }));
   g.add(edge);
   const p = U(0, 0, 0); g.position.set(p.x, p.y, p.z);
   g.visible = false; Fx.add(g, () => {});
@@ -205,14 +205,14 @@ function makeArena(hx, hy) {
 
 function makePrism(sx = 700, sy = 700, sz = 820) {
   const g = new THREE.Group(), w = sx * M, d = sy * M, hh = sz * M;
-  const body = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), matAdd(0x35c6ff, 0.16));
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, hh, d)), new THREE.LineBasicMaterial({ color: 0x9be7ff, toneMapped: false }));
-  const inner = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w * 0.45, w * 0.45, w * 0.45)), new THREE.LineBasicMaterial({ color: 0xffd23a, toneMapped: false }));
-  const innerSolid = new THREE.Mesh(new THREE.BoxGeometry(w * 0.45, w * 0.45, w * 0.45), matAdd(0xffb020, 0.25));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), matAdd(0x6f93ad, 0.16));
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, hh, d)), new THREE.LineBasicMaterial({ color: 0x9db6c8, toneMapped: false }));
+  const inner = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w * 0.45, w * 0.45, w * 0.45)), new THREE.LineBasicMaterial({ color: 0xd9a441, toneMapped: false }));
+  const innerSolid = new THREE.Mesh(new THREE.BoxGeometry(w * 0.45, w * 0.45, w * 0.45), matAdd(0xd08a2e, 0.25));
   g.add(body, edges); const core = new THREE.Group(); core.add(inner, innerSolid); core.position.y = 0; g.add(core);
-  const lab = labelSprite('ÁREA DE PRISMAS', { size: 2.2, glow: '#ffb020' }); lab.position.y = hh / 2 + 3.2; g.add(lab);
+  const lab = labelSprite('ÁREA DE PRISMAS', { size: 2.2, glow: '#d08a2e' }); lab.position.y = hh / 2 + 3.2; g.add(lab);
   const baseGeo = new THREE.RingGeometry(w * 0.62, w * 0.7, 48); baseGeo.rotateX(-Math.PI / 2);
-  const base = new THREE.Mesh(baseGeo, matAdd(0xffb020, 0.9)); base.position.y = -hh / 2 + 0.08; g.add(base);
+  const base = new THREE.Mesh(baseGeo, matAdd(0xd08a2e, 0.9)); base.position.y = -hh / 2 + 0.08; g.add(base);
   const st = { group: g, x: 0, y: 0, sx, sy, sz, flash: 0 };
   let t = 0;
   Fx.add(g, (dt) => {
@@ -345,7 +345,7 @@ class SolidViewer {
   }
   face(cls, label, id) {
     const f = h('div', { class: 'cv-face ' + cls });
-    f.append(h('span', { class: 'cv-tag' }, label), h('i', { class: 'cv-chk' }, '✓'));
+    f.append(h('span', { class: 'cv-tag' }, label), h('i', { class: 'cv-chk' }));
     f.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.dragMoved > 6) return;
@@ -557,12 +557,12 @@ class Board {
     this.onEvent = onEvent; this.strokes = []; this.cur = null; this.color = '#ffffff'; this.size = 3; this.eraser = false; this.count = 0;
     this.el = h('div', { class: 'board' });
     this.canvas = h('canvas', { class: 'board-cv' });
-    const colors = ['#ffffff', '#ffd23a', '#5ee1ff', '#ff7b7b'];
+    const colors = ['#ffffff', '#d9a441', '#7f9db5', '#c1583f'];
     this.tools = h('div', { class: 'board-tools' });
     this.colorBtns = colors.map((c) => { const b = h('button', { class: 'bt-color', type: 'button', style: { background: c }, 'aria-label': 'Color' }); b.onclick = () => { this.color = c; this.eraser = false; this.sync(); Snd.click(); }; return b; });
     this.eraserBtn = h('button', { class: 'bt', type: 'button', onclick: () => { this.eraser = !this.eraser; this.sync(); Snd.click(); } }, '⌫ Borrador');
-    this.undoBtn = h('button', { class: 'bt', type: 'button', onclick: () => { this.strokes.pop(); this.redraw(); Snd.click(); } }, '↶ Deshacer');
-    this.clearBtn = h('button', { class: 'bt', type: 'button', onclick: () => { this.strokes = []; this.redraw(); Snd.click(); } }, '🗑 Limpiar');
+    this.undoBtn = h('button', { class: 'bt', type: 'button', onclick: () => { this.strokes.pop(); this.redraw(); Snd.click(); } }, 'Deshacer');
+    this.clearBtn = h('button', { class: 'bt', type: 'button', onclick: () => { this.strokes = []; this.redraw(); Snd.click(); } }, 'Limpiar');
     this.tools.append(...this.colorBtns, this.eraserBtn, this.undoBtn, this.clearBtn);
     this.el.append(this.tools, h('div', { class: 'board-wrap' }, this.canvas));
     this.ctx = this.canvas.getContext('2d'); this.sync();
@@ -573,7 +573,7 @@ class Board {
     this.canvas.addEventListener('pointerup', end); this.canvas.addEventListener('pointercancel', end);
     this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(this.canvas);
   }
-  sync() { this.colorBtns.forEach((b, i) => b.classList.toggle('on', !this.eraser && ['#ffffff', '#ffd23a', '#5ee1ff', '#ff7b7b'][i] === this.color)); this.eraserBtn.classList.toggle('on', this.eraser); }
+  sync() { this.colorBtns.forEach((b, i) => b.classList.toggle('on', !this.eraser && ['#ffffff', '#d9a441', '#7f9db5', '#c1583f'][i] === this.color)); this.eraserBtn.classList.toggle('on', this.eraser); }
   resize() { const r = this.canvas.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); if (!r.width) return; this.canvas.width = Math.round(r.width * d); this.canvas.height = Math.round(r.height * d); this.redraw(); }
   redraw() {
     const c = this.ctx, W = this.canvas.width, H = this.canvas.height; c.clearRect(0, 0, W, H); c.lineCap = c.lineJoin = 'round';
@@ -602,15 +602,15 @@ const Panel = {
 
     R.statement = h('div', { class: 'mp-statement', html: ex.prompt });
     R.hintBox = h('div', { class: 'mp-hints' });
-    R.unfoldBtn = viewer.single ? h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); viewer.toggleUnfold(); R.unfoldBtn.textContent = viewer.unfolded ? '📦 Plegar prisma' : '📐 Desplegar'; } }, '📐 Desplegar') : null;
-    R.exposedBtn = !viewer.single ? h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); viewer.setExposed(!viewer.exposed); R.exposedBtn.classList.toggle('on', viewer.exposed); this.emit('exposed'); } }, '🔦 Resaltar exteriores') : null;
+    R.unfoldBtn = viewer.single ? h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); viewer.toggleUnfold(); R.unfoldBtn.textContent = viewer.unfolded ? 'Plegar prisma' : 'Desplegar'; } }, 'Desplegar') : null;
+    R.exposedBtn = !viewer.single ? h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); viewer.setExposed(!viewer.exposed); R.exposedBtn.classList.toggle('on', viewer.exposed); this.emit('exposed'); } }, 'Resaltar exteriores') : null;
     R.viewerBox = h('div', { class: 'mp-viewer' }, viewer.el, h('div', { class: 'mp-vtools' }, R.unfoldBtn, R.exposedBtn, h('span', { class: 'mp-vhint' }, 'Arrastra para girar · toca una cara para marcarla')));
     R.chips = h('div', { class: 'mp-chips' }, ex.chips.map((c) => { const b = h('button', { class: 'chip', type: 'button', title: 'Tocar para usar en la calculadora' }, c.label); b.onclick = () => { calc.insert(String(c.value)); Snd.click(); b.classList.add('used'); this.emit('chip'); }; return b; }));
     const problem = h('section', { class: 'mp-sec mp-problem', 'data-sec': 'problem' }, R.statement, R.chips, R.viewerBox, R.hintBox);
 
-    const calcSec = h('section', { class: 'mp-sec mp-calcsec', 'data-sec': 'calc' }, h('div', { class: 'mp-sectitle' }, '🧮 Calculadora'), calc.el);
+    const calcSec = h('section', { class: 'mp-sec mp-calcsec', 'data-sec': 'calc' }, h('div', { class: 'mp-sectitle' }, 'Calculadora'), calc.el);
     R.calcSec = calcSec;
-    const boardSec = h('section', { class: 'mp-sec mp-boardsec', 'data-sec': 'board' }, h('div', { class: 'mp-sectitle' }, '✏️ Pizarra'), board.el);
+    const boardSec = h('section', { class: 'mp-sec mp-boardsec', 'data-sec': 'board' }, h('div', { class: 'mp-sectitle' }, 'Pizarra'), board.el);
     R.boardSec = boardSec;
 
     const card = (title, formula, ins) => {
@@ -622,7 +622,7 @@ const Panel = {
       }
       return c;
     };
-    const fsec = h('section', { class: 'mp-sec mp-formulas', 'data-sec': 'formulas' }, h('div', { class: 'mp-sectitle' }, '📘 Fórmulas'),
+    const fsec = h('section', { class: 'mp-sec mp-formulas', 'data-sec': 'formulas' }, h('div', { class: 'mp-sectitle' }, 'Fórmulas'),
       card('Área de una cara', 'largo × ancho (o largo × alto…)', '×'),
       card('Área total del prisma', '2 × (a·b + a·c + b·c)', '2×('),
       card('Área lateral', 'perímetro de la base × alto<br><b>2 × (a + b) × c</b>', '2×('),
@@ -631,20 +631,20 @@ const Panel = {
       h('div', { class: 'ftip' }, 'Truco: busca los 3 pares de caras iguales, suma sus áreas y multiplica por 2.'));
     R.formulas = fsec;
 
-    const tabs = [['problem', '📦 Problema'], ['calc', '🧮 Calculadora'], ['board', '✏️ Pizarra'], ['formulas', '📘 Fórmulas']];
+    const tabs = [['problem', 'Problema'], ['calc', 'Calculadora'], ['board', 'Pizarra'], ['formulas', 'Fórmulas']];
     R.tabs = h('nav', { class: 'mp-tabs' }, tabs.map(([id, t]) => { const b = h('button', { type: 'button', 'data-tab': id, onclick: () => { Snd.click(); this.showTab(id); this.emit('tab', id); } }, t); return b; }));
     R.body = h('div', { class: 'mp-body' }, problem, calcSec, boardSec, fsec);
 
     R.input = h('input', { class: 'mp-input', type: 'text', inputmode: 'decimal', placeholder: 'Tu respuesta', autocomplete: 'off', enterkeyhint: 'done' });
     R.input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.check(); } });
     R.input.addEventListener('input', () => this.emit('typing', R.input.value));
-    R.useBtn = h('button', { class: 'bt use', type: 'button', onclick: () => { if (calc.last != null) { R.input.value = fmt(calc.last); Snd.pop(); R.input.focus(); this.emit('use'); } else Snd.fail(); } }, '↳ Resultado');
-    R.hintBtn = h('button', { class: 'bt hint', type: 'button', onclick: () => this.giveHint() }, '💡 Pista (0/3)');
+    R.useBtn = h('button', { class: 'bt use', type: 'button', onclick: () => { if (calc.last != null) { R.input.value = fmt(calc.last); Snd.pop(); R.input.focus(); this.emit('use'); } else Snd.fail(); } }, 'Usar resultado');
+    R.hintBtn = h('button', { class: 'bt hint', type: 'button', onclick: () => this.giveHint() }, 'Pista (0/3)');
     R.checkBtn = h('button', { class: 'check', type: 'button', onclick: () => this.check() }, 'COMPROBAR');
     R.foot = h('footer', { class: 'mp-foot' }, h('div', { class: 'mp-answer' }, R.input, h('span', { class: 'mp-unit' }, ex.unit), R.useBtn), h('div', { class: 'mp-actions' }, R.hintBtn, R.checkBtn));
 
     const lvl = ex.level === 0 ? 'TUTORIAL' : `NIVEL ${ex.level}`;
-    R.head = h('header', { class: 'mp-head' }, h('div', { class: 'mp-cube-ico' }, '▣'), h('div', { class: 'mp-titles' }, h('div', { class: 'mp-t1' }, 'ÁREA DE PRISMAS'), h('div', { class: 'mp-t2' }, ex.title)), h('div', { class: 'mp-badges' }, h('span', { class: 'badge lvl' }, lvl), tutorial ? null : h('span', { class: 'badge' }, `Ronda ${round}`), !tutorial && streak > 1 ? h('span', { class: 'badge fire' }, `x${streak}`) : null));
+    R.head = h('header', { class: 'mp-head' }, h('div', { class: 'mp-titles' }, h('div', { class: 'mp-t1' }, 'ÁREA DE PRISMAS'), h('div', { class: 'mp-t2' }, ex.title)), h('div', { class: 'mp-badges' }, h('span', { class: 'badge lvl' }, lvl), tutorial ? null : h('span', { class: 'badge' }, `Ronda ${round}`), !tutorial && streak > 1 ? h('span', { class: 'badge fire' }, `x${streak}`) : null));
     R.panel = h('div', { class: 'mp' }, R.head, R.tabs, R.body, R.foot);
     this.root = h('div', { class: 'mp-overlay' }, R.panel); document.body.append(this.root);
     this.showTab('problem');
@@ -667,8 +667,8 @@ const Panel = {
   giveHint() {
     const R = this.refs, ex = this.ex; if (this.hints >= ex.hints.length) { Snd.fail(); return; }
     const t = ex.hints[this.hints++]; this.showTab('problem'); Snd.pop();
-    R.hintBox.append(h('div', { class: 'hint-line', html: `<span>💡 Pista ${this.hints}</span> ${t}` }));
-    R.hintBtn.textContent = `💡 Pista (${this.hints}/3)`; if (this.hints >= ex.hints.length) R.hintBtn.classList.add('off');
+    R.hintBox.append(h('div', { class: 'hint-line', html: `<span>Pista ${this.hints}</span> ${t}` }));
+    R.hintBtn.textContent = `Pista (${this.hints}/3)`; if (this.hints >= ex.hints.length) R.hintBtn.classList.add('off');
     this.emit('hint', this.hints);
   },
   parse(v) { const s = String(v).replace(/\s|\$/g, '').replace(',', '.'); return /^-?\d+(\.\d+)?$/.test(s) ? parseFloat(s) : NaN; },
@@ -688,8 +688,8 @@ const Panel = {
       : '<svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" fill="none" stroke="currentColor" stroke-width="3"/><path d="M17 17l18 18M35 17L17 35" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>';
     const ico = h('div', { class: 'res-ico', html: svg });
     const steps = h('div', { class: 'res-steps' });
-    const btn = h('button', { class: 'check big', type: 'button' }, 'CONTINUAR ▶');
-    box.append(ico, h('div', { class: 'res-title' }, ok ? '¡CORRECTO!' : 'INCORRECTO'),
+    const btn = h('button', { class: 'check big', type: 'button' }, 'CONTINUAR');
+    box.append(ico, h('div', { class: 'res-title' }, ok ? 'CORRECTO' : 'INCORRECTO'),
       h('div', { class: 'res-sub', html: ok ? `Tu respuesta: <b>${fmt(value)} ${ex.unit}</b>` : `Tu respuesta: <b>${fmt(value)} ${ex.unit}</b> · Correcta: <b>${fmt(ex.answer)} ${ex.unit}</b>` }),
       h('div', { class: 'res-stephead' }, 'Así se resuelve:'), steps,
       ok ? h('div', { class: 'res-pts' }, `+${points} puntos`) : h('div', { class: 'res-pts bad' }, 'Castigo en camino…'), btn);
@@ -712,7 +712,7 @@ const Confetti = {
   burst(n = 120, power = 1) {
     if (!this.cv) { this.cv = h('canvas', { class: 'mm-confetti' }); document.body.append(this.cv); this.ctx = this.cv.getContext('2d'); }
     this.cv.width = innerWidth; this.cv.height = innerHeight;
-    const cols = ['#ffd23a', '#39d0ff', '#ff7b7b', '#7dff9a', '#ffffff', '#c58bff'];
+    const cols = ['#d9a441', '#6f93ad', '#c1583f', '#86a368', '#ffffff', '#8c7a9e'];
     for (let i = 0; i < n; i++) { const a = rand(-Math.PI * 0.95, -Math.PI * 0.05), s = rand(400, 1100) * power; this.parts.push({ x: innerWidth / 2 + rand(-120, 120), y: innerHeight * 0.62, vx: Math.cos(a) * s * 0.7, vy: Math.sin(a) * s, r: rand(4, 9), c: pick(cols), rot: rand(0, 6), vr: rand(-9, 9), life: rand(1.6, 2.8) }); }
     if (!this.running) { this.running = true; let last = performance.now(); const loop = (now) => { const dt = Math.min(0.05, (now - last) / 1000); last = now; this.step(dt); if (this.parts.length) requestAnimationFrame(loop); else { this.running = false; this.ctx.clearRect(0, 0, this.cv.width, this.cv.height); } }; requestAnimationFrame(loop); }
   },
@@ -730,9 +730,9 @@ const Hud = {
     r.icon = h('div', { class: 'mm-obj-ico' }); r.t = h('div', { class: 'mm-obj-t' }); r.s = h('div', { class: 'mm-obj-s' }); r.bar = h('i');
     r.obj = h('div', { class: 'mm-obj' }, r.icon, h('div', { class: 'mm-obj-body' }, r.t, r.s, h('div', { class: 'mm-obj-bar' }, r.bar)));
     r.boostNum = h('b'); r.boost = h('div', { class: 'mm-boost' }, h('div', { class: 'mm-boost-in' }, r.boostNum, h('small', {}, 'BOOST')));
-    r.exit = h('button', { class: 'mm-btn', type: 'button', title: 'Volver al menú', onclick: () => { Snd.click(); location.href = location.pathname; } }, '✕ Menú');
-    r.cam = h('button', { class: 'mm-btn', type: 'button', title: 'Cambiar cámara (C)', onclick: () => { Snd.click(); RS.cam.ballCam = !RS.cam.ballCam; this.sync(); } }, '📷 Cámara');
-    r.mute = h('button', { class: 'mm-btn', type: 'button', title: 'Sonido', onclick: () => { r.mute.textContent = Snd.toggleMute() ? '🔇' : '🔊'; } }, '🔊');
+    r.exit = h('button', { class: 'mm-btn', type: 'button', title: 'Volver al menú', onclick: () => { Snd.click(); location.href = location.pathname; } }, 'Menú');
+    r.cam = h('button', { class: 'mm-btn', type: 'button', title: 'Cambiar cámara (C)', onclick: () => { Snd.click(); RS.cam.ballCam = !RS.cam.ballCam; this.sync(); } }, 'Cámara');
+    r.mute = h('button', { class: 'mm-btn', type: 'button', title: 'Sonido', onclick: () => { r.mute.textContent = Snd.toggleMute() ? 'Silencio' : 'Sonido'; } }, 'Sonido');
     r.tools = h('div', { class: 'mm-tools' }, r.cam, r.mute, r.exit);
     r.marker = h('div', { class: 'mm-marker' }, h('div', { class: 'mm-marker-arrow' }), h('div', { class: 'mm-marker-txt' }));
     r.bars = h('div', { class: 'mm-bars' }, h('i'), h('i')); r.slow = h('div', { class: 'mm-slow' });
@@ -750,7 +750,7 @@ const Hud = {
   boost(v, inf) { const r = this.r; r.boost.style.setProperty('--p', inf ? 100 : clamp(v, 0, 100)); r.boostNum.textContent = inf ? '∞' : Math.round(v); r.boost.classList.toggle('inf', !!inf); r.boost.classList.toggle('low', !inf && v < 15); },
   toast(msg, kind = '', ms = 2200) { const t = this.r.toast; t.className = 'mm-toast ' + kind; t.innerHTML = msg; void t.offsetWidth; t.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('show'), ms); },
   splash(small, big, ms = 1900) { const s = this.r.splash; s.innerHTML = `<div class="sp-s">${small}</div><div class="sp-b">${big}</div>`; s.classList.remove('show'); void s.offsetWidth; s.classList.add('show'); clearTimeout(this._st); this._st = setTimeout(() => s.classList.remove('show'), ms); },
-  marker(x, y, z, label, color = '#39d0ff') {
+  marker(x, y, z, label, color = '#6f93ad') {
     const m = this.r.marker; if (x == null) { m.style.display = 'none'; return; }
     const v = new THREE.Vector3(); U(x, y, z, v); const cam = RS.camera; v.project(cam);
     const behind = v.z > 1; let sx = (v.x * 0.5 + 0.5) * innerWidth, sy = (-v.y * 0.5 + 0.5) * innerHeight; if (behind) { sx = innerWidth - sx; sy = innerHeight - sy; }
@@ -798,16 +798,16 @@ const G = {
 };
 
 const CT = {
-  accel: { name: 'Acelerar', kb: ['W'], pad: 'R2', touch: '▲ ACCEL', sel: '#btn-accel', act: () => RS.ctl.throttle > 0.2 },
-  brake: { name: 'Frenar / reversa', kb: ['S'], pad: 'L2', touch: '▼ BRAKE', sel: '#btn-decel', act: () => RS.ctl.throttle < -0.2 },
-  left: { name: 'Girar izq.', kb: ['A'], pad: 'Stick ←', touch: 'Joystick ←', sel: '#joystick-base', act: () => RS.ctl.steer > 0.25 },
-  right: { name: 'Girar der.', kb: ['D'], pad: 'Stick →', touch: 'Joystick →', sel: '#joystick-base', act: () => RS.ctl.steer < -0.25 },
-  boost: { name: 'Boost', kb: ['Shift'], pad: '○', touch: 'BOOST', sel: '#btn-boost', act: () => RS.ctl.boost },
-  jump: { name: 'Saltar', kb: ['Espacio'], pad: '✕', touch: 'JUMP', sel: '#btn-jump', act: () => RS.ctl.jump },
-  slide: { name: 'Powerslide', kb: ['Ctrl'], pad: '□', touch: 'SLIDE', sel: '#btn-powerslide', act: () => RS.ctl.handbrake },
-  rollL: { name: 'Air roll ◀', kb: ['Q'], pad: 'L1', touch: 'AR L', sel: '#btn-airroll-l', act: () => RS.ctl.roll < -0.3 },
-  rollR: { name: 'Air roll ▶', kb: ['E'], pad: 'R1', touch: 'AR R', sel: '#btn-airroll-r', act: () => RS.ctl.roll > 0.3 },
-  cam: { name: 'Cámara', kb: ['C'], pad: '△', touch: '📷', sel: '#mm-hud .mm-tools button:first-child', act: () => false },
+  accel: { name: 'Acelerar', kb: ['W'], pad: 'R2', touch: 'ACCEL', sel: '#btn-accel', act: () => RS.ctl.throttle > 0.2 },
+  brake: { name: 'Frenar / reversa', kb: ['S'], pad: 'L2', touch: 'BRAKE', sel: '#btn-decel', act: () => RS.ctl.throttle < -0.2 },
+  left: { name: 'Girar izq.', kb: ['A'], pad: 'Stick izq.', touch: 'Joystick izq.', sel: '#joystick-base', act: () => RS.ctl.steer > 0.25 },
+  right: { name: 'Girar der.', kb: ['D'], pad: 'Stick der.', touch: 'Joystick der.', sel: '#joystick-base', act: () => RS.ctl.steer < -0.25 },
+  boost: { name: 'Boost', kb: ['Shift'], pad: 'Círculo', touch: 'BOOST', sel: '#btn-boost', act: () => RS.ctl.boost },
+  jump: { name: 'Saltar', kb: ['Espacio'], pad: 'X', touch: 'JUMP', sel: '#btn-jump', act: () => RS.ctl.jump },
+  slide: { name: 'Powerslide', kb: ['Ctrl'], pad: 'Cuadrado', touch: 'SLIDE', sel: '#btn-powerslide', act: () => RS.ctl.handbrake },
+  rollL: { name: 'Air roll izq.', kb: ['Q'], pad: 'L1', touch: 'AR L', sel: '#btn-airroll-l', act: () => RS.ctl.roll < -0.3 },
+  rollR: { name: 'Air roll der.', kb: ['E'], pad: 'R1', touch: 'AR R', sel: '#btn-airroll-r', act: () => RS.ctl.roll > 0.3 },
+  cam: { name: 'Cámara', kb: ['C'], pad: 'Triáng.', touch: 'CAM', sel: '#mm-hud .mm-tools button:first-child', act: () => false },
 };
 function ctrlRow(ids) {
   const el = h('div', { class: 'tc-row' }), items = [];
@@ -836,7 +836,7 @@ const Tour = {
     const btns = h('div', { class: 'tour-btns' });
     if (button) { const b = h('button', { class: 'check small', type: 'button', onclick: () => { Snd.click(); onButton && onButton(); } }, button); btns.append(b); }
     if (skip) { const s = h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); skip.fn(); } }, skip.label); btns.append(s); }
-    const bubble = h('div', { class: 'tour-bubble' }, h('div', { class: 'tour-mascot' }, '▣'), h('div', { class: 'tour-text', html: wordsHtml(text) }), btns);
+    const bubble = h('div', { class: 'tour-bubble' }, h('div', { class: 'tour-text', html: wordsHtml(text) }), btns);
     this.el = h('div', { class: 'tour' }, spot, bubble); document.body.append(this.el); this.spot = spot; this.bubble = bubble;
     const loop = () => { this.raf = requestAnimationFrame(loop); this.place(); }; loop(); Snd.step();
   },
@@ -872,8 +872,8 @@ const T = {
     const r = this.ui = {};
     r.steps = h('div', { class: 'tut-steps' }, LESSONS.map((l, i) => h('div', { class: 'tut-step', title: l.name }, h('span', {}, l.icon))));
     r.coachText = h('div', { class: 'coach-text' }); r.coachName = h('div', { class: 'coach-name' }, 'Tu entrenador');
-    r.skip = h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); this.next(true); } }, 'Saltar lección ▶');
-    r.retry = h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); this.enter(this.i); } }, '↻ Repetir');
+    r.skip = h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); this.next(true); } }, 'Saltar lección');
+    r.retry = h('button', { class: 'bt', type: 'button', onclick: () => { Snd.click(); this.enter(this.i); } }, 'Repetir');
     r.coach = h('div', { class: 'tut-coach' }, h('div', { class: 'coach-face' }, h('i', {}), h('i', {}), h('b', {})), h('div', { class: 'coach-body' }, r.coachName, r.coachText, h('div', { class: 'coach-btns' }, r.retry, r.skip)));
     r.ctrl = h('div', { class: 'tut-ctrl' });
     this.root = h('div', { id: 'tut-ui' }, r.steps, r.coach, r.ctrl); document.body.append(this.root);
@@ -888,11 +888,11 @@ const T = {
   intro() {
     this.lock = true; RS.sim.lockInput = true;
     const card = h('div', { class: 'tut-card intro' },
-      h('div', { class: 'logo3d' }, h('div', { class: 'l3-cube' }, ['f', 'b', 'l', 'r', 't', 'u'].map((c) => h('i', { class: c })))),
+      h('div', { class: 'logo3d', html: '<svg viewBox="0 0 78 62"><path d="M8 24 L36 24 L36 54 L8 54 Z"/><path d="M8 24 L24 10 L52 10 L36 24"/><path d="M36 54 L52 40 L52 10"/><path class="d" d="M8 54 L24 40 L52 40"/><path class="d" d="M24 40 L24 10"/><path class="h" d="M8 60 L36 60 M8 57 L8 63 M36 57 L36 63"/><path class="h" d="M58 10 L58 40 M55 10 L61 10 M55 40 L61 40"/></svg>' }),
       h('div', { class: 'tc-title' }, 'ACADEMIA DEL PRISMA'), h('div', { class: 'tc-sub' }, 'Tutorial interactivo'),
       h('p', { html: 'Aprenderás a <b>conducir</b>, <b>llevar la bola</b> hasta el prisma y <b>resolver ejercicios de área de prismas</b> con todas las herramientas dentro del juego.' }),
       h('div', { class: 'tc-list' }, LESSONS.map((l) => h('span', {}, l.icon + ' ' + l.name))),
-      h('div', { class: 'tc-btns' }, h('button', { class: 'check big', type: 'button', onclick: () => { Snd.init(); Snd.chime(); card.classList.add('out'); setTimeout(() => card.remove(), 400); RS.sim.lockInput = false; this.lock = false; this.root.classList.remove('hidden'); this.enter(0); } }, 'EMPEZAR ▶'),
+      h('div', { class: 'tc-btns' }, h('button', { class: 'check big', type: 'button', onclick: () => { Snd.init(); Snd.chime(); card.classList.add('out'); setTimeout(() => card.remove(), 400); RS.sim.lockInput = false; this.lock = false; this.root.classList.remove('hidden'); this.enter(0); } }, 'EMPEZAR'),
         h('button', { class: 'bt', type: 'button', onclick: () => { location.href = location.pathname; } }, 'Salir')));
     document.body.append(card); requestAnimationFrame(() => card.classList.add('in')); this.card = card;
     Hud.r.obj.style.display = 'none';
@@ -914,7 +914,7 @@ const T = {
   },
   completeLesson() {
     if (this.locked) return; this.locked = true; const st = RS.getState(); Hud.done();
-    Snd.chime(); shock(st.carPos.x, st.carPos.y, 0x7dff9a, 900, 1); burst(st.carPos.x, st.carPos.y, 120, 0x7dff9a, 90, 26); Confetti.burst(90, 0.8);
+    Snd.chime(); shock(st.carPos.x, st.carPos.y, 0x86a368, 900, 1); burst(st.carPos.x, st.carPos.y, 120, 0x86a368, 90, 26); Confetti.burst(90, 0.8);
     Hud.splash('¡MUY BIEN!', LESSONS[this.i].ok || 'LECCIÓN COMPLETADA', 1500); this.say(LESSONS[this.i].ok || '¡Lo lograste!');
     $$('.tut-step', this.ui.steps)[this.i].classList.add('done'); this.setCtrls(null);
     setTimeout(() => { if (G.mode === Tutorial) this.next(); }, 1900);
@@ -942,55 +942,55 @@ const T = {
     Confetti.burst(240, 1.2); Snd.chime(); setTimeout(() => Snd.chime(), 500);
     const secs = Math.round((performance.now() - this.startT) / 1000);
     const card = h('div', { class: 'tut-card outro' },
-      h('div', { class: 'tc-medal' }, ''), h('div', { class: 'tc-title' }, '¡TUTORIAL COMPLETADO!'), h('div', { class: 'tc-sub' }, `Tiempo: ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} · Lecciones: ${this.done.length}/${LESSONS.length}`),
+      h('div', { class: 'tc-medal' }, ''), h('div', { class: 'tc-title' }, 'TUTORIAL COMPLETADO'), h('div', { class: 'tc-sub' }, `Tiempo: ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} · Lecciones: ${this.done.length}/${LESSONS.length}`),
       h('div', { class: 'tc-badges' }, LESSONS.map((l, k) => h('div', { class: 'tc-badge' + (this.done.includes(k) ? ' got' : ''), style: { animationDelay: k * 90 + 'ms' } }, h('span', {}, l.icon), h('small', {}, l.name)))),
       h('p', { html: 'Ya sabes conducir, llevar la bola y resolver ejercicios. En el <b>Modo Matemáticas</b> llevarás la bola al prisma: si aciertas ganas <b>boost infinito</b>; si fallas, <b>pierdes el boost y vas más lento</b>.' }),
-      h('div', { class: 'tc-btns' }, h('button', { class: 'check big', type: 'button', onclick: () => { location.href = location.pathname + '?mode=math'; } }, 'JUGAR MODO MATEMÁTICAS ▶'),
-        h('button', { class: 'bt', type: 'button', onclick: () => { location.href = location.pathname + '?mode=tutorial'; } }, '↻ Repetir tutorial'), h('button', { class: 'bt', type: 'button', onclick: () => { location.href = location.pathname; } }, 'Menú')));
+      h('div', { class: 'tc-btns' }, h('button', { class: 'check big', type: 'button', onclick: () => { location.href = location.pathname + '?mode=math'; } }, 'JUGAR MODO MATEMÁTICAS'),
+        h('button', { class: 'bt', type: 'button', onclick: () => { location.href = location.pathname + '?mode=tutorial'; } }, 'Repetir tutorial'), h('button', { class: 'bt', type: 'button', onclick: () => { location.href = location.pathname; } }, 'Menú')));
     document.body.append(card); requestAnimationFrame(() => card.classList.add('in'));
   },
 };
 const Tutorial = { start: () => T.start(), update: (dt, st) => T.update(dt, st), resetRound: () => T.respawn(), controls: () => {} };
 
 const LESSONS = [
-  { icon: '🚗', name: 'Acelerar', title: 'ACELERA', sub: 'Llega al círculo azul', ok: 'Así se acelera',
+  { icon: '01', name: 'Acelerar', title: 'ACELERA', sub: 'Llega al círculo azul', ok: 'Correcto',
     text: 'Bienvenido. Para avanzar **mantén pulsado el acelerador**. Conduce hasta el círculo azul de allí delante.', ctrls: ['accel'],
     enter(T) { T.car(0, -2100); T.s.z = T.keep(makeZone({ x: 0, y: -600, r: 300 })); },
     marker: (T) => [0, -600, 200, 'META'],
-    tick(T, dt, st) { const d = T.dist2(st.carPos, T.s.z); const sp = Math.hypot(st.carVel.x, st.carVel.y); T.idle = sp < 60 ? T.idle + dt : 0; if (T.idle > 4.5) { T.idle = -3; Hud.toast('Mantén pulsado <b>W</b> / el botón ▲ ACCEL', 'info'); } return d < 300 ? true : clamp(1 - (d - 300) / 1500, 0, 0.97); } },
-  { icon: '🛞', name: 'Girar', title: 'GIRA', sub: 'Pasa por los 3 círculos en orden', ok: 'Giras como un profesional',
+    tick(T, dt, st) { const d = T.dist2(st.carPos, T.s.z); const sp = Math.hypot(st.carVel.x, st.carVel.y); T.idle = sp < 60 ? T.idle + dt : 0; if (T.idle > 4.5) { T.idle = -3; Hud.toast('Mantén pulsado <b>W</b> / el botón ACCEL', 'info'); } return d < 300 ? true : clamp(1 - (d - 300) / 1500, 0, 0.97); } },
+  { icon: '02', name: 'Girar', title: 'GIRA', sub: 'Pasa por los 3 círculos en orden', ok: 'Giro completado',
     text: 'Acelera y **gira con A / D** (o el stick izquierdo / joystick). Pasa por los tres círculos en orden: ¡el siguiente brilla!', ctrls: ['accel', 'left', 'right'],
-    enter(T) { T.car(0, -2100); const P = [[-650, -1200], [650, -200], [0, 900]]; T.s.zs = P.map(([x, y], k) => T.keep(makeZone({ x, y, r: 280, text: String(k + 1) }))); T.s.n = 0; T.s.zs.forEach((z, k) => z.setColor(k === 0 ? 0x39d0ff : 0x4a5a6a)); },
+    enter(T) { T.car(0, -2100); const P = [[-650, -1200], [650, -200], [0, 900]]; T.s.zs = P.map(([x, y], k) => T.keep(makeZone({ x, y, r: 280, text: String(k + 1) }))); T.s.n = 0; T.s.zs.forEach((z, k) => z.setColor(k === 0 ? 0x6f93ad : 0x4a5a6a)); },
     marker: (T) => { const z = T.s.zs[Math.min(T.s.n, 2)]; return [z.x, z.y, 200, String(T.s.n + 1)]; },
-    tick(T, dt, st) { const z = T.s.zs[T.s.n]; if (z && T.dist2(st.carPos, z) < 280) { z.setColor(0x7dff9a); shock(z.x, z.y, 0x7dff9a, 600, 0.7); burst(z.x, z.y, 120, 0x7dff9a, 40, 16); Snd.step(); T.s.n++; if (T.s.n < 3) T.s.zs[T.s.n].setColor(0x39d0ff); } return T.s.n >= 3 ? true : T.s.n / 3; } },
-  { icon: '🛑', name: 'Frenar', title: 'FRENA', sub: 'Detente dentro de la zona', ok: 'Frenada perfecta',
-    text: 'Vas muy rápido. **Frena con S** (o L2 / ▼ BRAKE) y detente por completo dentro de la zona naranja. ¡Frena con tiempo!', ctrls: ['brake'],
-    enter(T) { T.car(0, -2300, 0, 1500); T.s.z = T.keep(makeZone({ x: 0, y: -150, r: 340, color: 0xffb020 })); T.s.hold = 0; },
-    marker: () => [0, -150, 200, 'FRENA', '#ffb020'],
+    tick(T, dt, st) { const z = T.s.zs[T.s.n]; if (z && T.dist2(st.carPos, z) < 280) { z.setColor(0x86a368); shock(z.x, z.y, 0x86a368, 600, 0.7); burst(z.x, z.y, 120, 0x86a368, 40, 16); Snd.step(); T.s.n++; if (T.s.n < 3) T.s.zs[T.s.n].setColor(0x6f93ad); } return T.s.n >= 3 ? true : T.s.n / 3; } },
+  { icon: '03', name: 'Frenar', title: 'FRENA', sub: 'Detente dentro de la zona', ok: 'Frenada correcta',
+    text: 'Vas muy rápido. **Frena con S** (o L2 / BRAKE) y detente por completo dentro de la zona naranja. ¡Frena con tiempo!', ctrls: ['brake'],
+    enter(T) { T.car(0, -2300, 0, 1500); T.s.z = T.keep(makeZone({ x: 0, y: -150, r: 340, color: 0xd08a2e })); T.s.hold = 0; },
+    marker: () => [0, -150, 200, 'FRENA', '#d08a2e'],
     tick(T, dt, st) { const sp = Math.hypot(st.carVel.x, st.carVel.y), d = T.dist2(st.carPos, T.s.z); if (d < 340 && sp < 120) T.s.hold += dt; else T.s.hold = Math.max(0, T.s.hold - dt); if (st.carPos.y > -150 + 800) { T.fail('¡Te pasaste! Frena antes'); T.s.hold = 0; } return T.s.hold >= 0.5 ? true : T.s.hold / 0.5 * 0.9; } },
-  { icon: 'Boost', name: 'Boost', title: 'USA EL BOOST', sub: 'Alcanza 2000 uu/s', ok: 'Boost dominado',
-    text: 'Mantén **Shift** (○ / BOOST) para disparar el boost. Mira el medidor circular: ¡cada llama gasta boost! Llega a más de **2000 uu/s**.', ctrls: ['accel', 'boost'],
-    enter(T) { T.car(0, -2300); G.boost(100); T.s.z = T.keep(makeZone({ x: 0, y: 1900, r: 330, color: 0xff7a1a })); T.s.slow = false; },
-    marker: () => [0, 1900, 200, 'META', '#ff7a1a'],
+  { icon: '04', name: 'Boost', title: 'USA EL BOOST', sub: 'Alcanza 2000 uu/s', ok: 'Boost correcto',
+    text: 'Mantén **Shift** (Círculo / BOOST) para disparar el boost. Mira el medidor circular: ¡cada llama gasta boost! Llega a más de **2000 uu/s**.', ctrls: ['accel', 'boost'],
+    enter(T) { T.car(0, -2300); G.boost(100); T.s.z = T.keep(makeZone({ x: 0, y: 1900, r: 330, color: 0xd08a2e })); T.s.slow = false; },
+    marker: () => [0, 1900, 200, 'META', '#d08a2e'],
     tick(T, dt, st) { const sp = Math.hypot(st.carVel.x, st.carVel.y); if (RS.ctl.boost && st.boost > 0 && !T.s.slow) { T.s.slow = true; G.slowmo(0.3, 1.8, 'BOOST'); Hud.toast('¡Mira la llama! Cada llama gasta boost', 'info', 2200); } if (st.boost < 6 && sp < 1900) { G.boost(100); Hud.toast('Boost recargado', 'info', 1200); } return sp >= 2000 ? true : clamp(sp / 2000, 0, 0.97); } },
-  { icon: '⬆️', name: 'Saltar', title: 'SALTA', sub: 'Salta por encima de la barra', ok: 'Saltas como un campeón',
-    text: 'Pulsa **Espacio** (✕ / JUMP) para saltar. **Un toque corto salta poco; mantenlo un instante para saltar más alto.** Salta la barra naranja.', ctrls: ['accel', 'jump'],
+  { icon: '05', name: 'Saltar', title: 'SALTA', sub: 'Salta por encima de la barra', ok: 'Salto correcto',
+    text: 'Pulsa **Espacio** (X / JUMP) para saltar. **Un toque corto salta poco; mantenlo un instante para saltar más alto.** Salta la barra naranja.', ctrls: ['accel', 'jump'],
     enter(T) {
       T.car(0, -1800, 0, 700); const w = AREA.hx * 2 * M, g = new THREE.Group();
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 150 * M, 80 * M), matAdd(0xe8620c, 0.2)), edge = new THREE.LineSegments(new THREE.EdgesGeometry(bar.geometry), new THREE.LineBasicMaterial({ color: 0xffd23a, toneMapped: false }));
-      g.add(bar, edge); const lab = labelSprite('¡SALTA!', { size: 2, glow: '#ff8a1a' }); lab.position.y = 4.5; g.add(lab); const p = U(0, -300, 75); g.position.set(p.x, p.y, p.z); T.keep(g); Fx.add(g, () => {});
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 150 * M, 80 * M), matAdd(0xb8691f, 0.2)), edge = new THREE.LineSegments(new THREE.EdgesGeometry(bar.geometry), new THREE.LineBasicMaterial({ color: 0xd9a441, toneMapped: false }));
+      g.add(bar, edge); const lab = labelSprite('¡SALTA!', { size: 2, glow: '#d08a2e' }); lab.position.y = 4.5; g.add(lab); const p = U(0, -300, 75); g.position.set(p.x, p.y, p.z); T.keep(g); Fx.add(g, () => {});
       T.s.tap = false; T.s.first = false; T.s.passed = false;
     },
-    marker: () => [0, -300, 120, 'SALTA', '#ff8a1a'],
+    marker: () => [0, -300, 120, 'SALTA', '#d08a2e'],
     tick(T, dt, st) {
       if (RS.ctl.jump && st.isOnGround && !T.s.first) { T.s.first = true; G.slowmo(0.25, 1.2, 'SALTO'); }
       if (Math.abs(st.carPos.y + 300) < 260 && st.carPos.z > 118) return true;
       if (st.carPos.y > -300 + 320) { T.fail('Mantén Espacio un instante para saltar más alto'); }
       return clamp((st.carPos.y + 1800) / 1500, 0, 0.9); } },
-  { icon: '🌀', name: 'Doble salto', title: 'DOBLE SALTO', sub: 'Atraviesa el aro del aire', ok: 'Doble salto perfecto',
+  { icon: '06', name: 'Doble salto', title: 'DOBLE SALTO', sub: 'Atraviesa el aro del aire', ok: 'Doble salto correcto',
     text: 'Pulsa **Espacio**, y **otra vez en el aire** para el doble salto: sube mucho más. Con una dirección (W/A/D) harás una voltereta. Atraviesa el aro.', ctrls: ['accel', 'jump'],
-    enter(T) { T.car(0, -1700, 0, 900); T.s.g = T.keep(makeGate({ x: 0, y: 250, z: 340, r: 200, yaw: Math.PI / 2, color: 0xc58bff })); T.s.second = false; },
-    marker: () => [0, 250, 380, 'AQUÍ', '#c58bff'],
+    enter(T) { T.car(0, -1700, 0, 900); T.s.g = T.keep(makeGate({ x: 0, y: 250, z: 340, r: 200, yaw: Math.PI / 2, color: 0x8c7a9e })); T.s.second = false; },
+    marker: () => [0, 250, 380, 'AQUÍ', '#8c7a9e'],
     tick(T, dt, st) {
       if (!st.isOnGround && RS.ctl.jump && !T.s.prev && !T.s.second && T.s.lifted) { T.s.second = true; G.slowmo(0.2, 1.5, 'DOBLE SALTO'); }
       T.s.prev = RS.ctl.jump; if (!st.isOnGround && st.carPos.z > 60) T.s.lifted = true;
@@ -998,30 +998,30 @@ const LESSONS = [
       if (Math.abs(st.carPos.y - g.y) < 200 && d < g.r) { if (T.s.second) return true; Hud.toast('Pulsa salto <b>otra vez en el aire</b>', 'info', 1800); }
       if (st.carPos.y > g.y + 500) T.fail('Salta, y otra vez en el aire. ¡Suelta y vuelve a pulsar!');
       return clamp((st.carPos.y + 1700) / 1900, 0, 0.9); } },
-  { icon: '🔄', name: 'Air roll', title: 'AIR ROLL', sub: 'Gira en el aire 0,7 s', ok: 'Controlas el aire',
+  { icon: '07', name: 'Air roll', title: 'AIR ROLL', sub: 'Gira en el aire 0,7 s', ok: 'Control en el aire',
     text: 'En el aire puedes girar el auto. Salta (mantén Espacio) y mientras vuelas **mantén Q o E** (L1 / R1, AR L / AR R) para hacer **air roll**.', ctrls: ['jump', 'rollL', 'rollR'],
     enter(T) { T.car(0, -1900, 0, 500); T.s.acc = 0; T.s.first = false; },
     tick(T, dt, st) { const air = !st.isOnGround && st.carPos.z > 60; if (air && Math.abs(RS.ctl.roll) > 0.5) { T.s.acc += dt; if (!T.s.first) { T.s.first = true; G.slowmo(0.3, 1.4, 'AIR ROLL'); } } return T.s.acc >= 0.7 ? true : T.s.acc / 0.7; } },
-  { icon: '💨', name: 'Powerslide', title: 'POWERSLIDE', sub: 'Derrapa 0,8 s a buena velocidad', ok: 'Derrape limpio',
-    text: 'Para giros cerrados usa el **powerslide**: acelera, gira y mantén **Ctrl** (□ / SLIDE). Derrapa casi 1 segundo sin soltar.', ctrls: ['accel', 'left', 'right', 'slide'],
+  { icon: '08', name: 'Powerslide', title: 'POWERSLIDE', sub: 'Derrapa 0,8 s a buena velocidad', ok: 'Derrape correcto',
+    text: 'Para giros cerrados usa el **powerslide**: acelera, gira y mantén **Ctrl** (Cuadrado / SLIDE). Derrapa casi 1 segundo sin soltar.', ctrls: ['accel', 'left', 'right', 'slide'],
     enter(T) { T.car(0, -2200, 0, 1200); T.s.acc = 0; T.s.first = false; },
     tick(T, dt, st) { const sp = Math.hypot(st.carVel.x, st.carVel.y); if (RS.ctl.handbrake && st.isOnGround && sp > 600 && Math.abs(RS.ctl.steer) > 0.25) { T.s.acc += dt; if (!T.s.first) { T.s.first = true; G.slowmo(0.35, 1.4, 'POWERSLIDE'); } } if (sp < 150 && T.lessonT > 3) { T.respawn(); Hud.toast('Acelera para ganar velocidad', 'info', 1500); } return T.s.acc >= 0.8 ? true : T.s.acc / 0.8; } },
-  { icon: '📷', name: 'Cámara', title: 'CÁMARA', sub: 'Cambia de cámara 2 veces', ok: 'Ves el campo como un pro',
-    text: 'Pulsa **C** (△ / el botón 📷) para alternar entre la **cámara de balón** (siempre mira a la bola) y la **cámara libre** (sigue al auto). Cámbiala dos veces.', ctrls: ['cam'],
+  { icon: '09', name: 'Cámara', title: 'CÁMARA', sub: 'Cambia de cámara 2 veces', ok: 'Cámara correcta',
+    text: 'Pulsa **C** (Triángulo / el botón de cámara) para alternar entre la **cámara de balón** (siempre mira a la bola) y la **cámara libre** (sigue al auto). Cámbiala dos veces.', ctrls: ['cam'],
     enter(T) { T.car(0, -1500); T.ball(450, 300); T.s.lab = T.keep(labelSprite('BALÓN', { size: 1.7 })); const p = U(450, 300, 330); T.s.lab.position.set(p.x, p.y, p.z); Fx.add(T.s.lab, () => {}); },
     tick(T) { if (G.camToggles >= 2) { RS.cam.ballCam = true; Hud.sync(); return true; } return G.camToggles / 2 * 0.95; } },
-  { icon: 'Balón', name: 'Llevar la bola', title: 'LLEVA LA BOLA', sub: 'Empuja la bola hasta la zona naranja', ok: 'Gran control de bola',
+  { icon: '10', name: 'Llevar la bola', title: 'LLEVA LA BOLA', sub: 'Empuja la bola hasta la zona naranja', ok: 'Bola controlada',
     text: 'Conduce hacia la bola y **empújala** hasta la zona naranja. Apunta al **centro de la bola**: con la cámara de balón siempre sabrás dónde está. Toques suaves = más control.', ctrls: ['accel', 'left', 'right', 'boost', 'cam'],
-    enter(T) { RS.cam.ballCam = true; Hud.sync(); T.car(0, -1800); T.ball(0, -600); T.s.z = T.keep(makeZone({ x: 0, y: 1700, r: 400, color: 0xffb020 })); T.s.touch = false; T.s.pv = { x: 0, y: 0 }; },
-    marker: (T) => [0, 1700, 220, 'META', '#ffb020'],
+    enter(T) { RS.cam.ballCam = true; Hud.sync(); T.car(0, -1800); T.ball(0, -600); T.s.z = T.keep(makeZone({ x: 0, y: 1700, r: 400, color: 0xd08a2e })); T.s.touch = false; T.s.pv = { x: 0, y: 0 }; },
+    marker: (T) => [0, 1700, 220, 'META', '#d08a2e'],
     tick(T, dt, st) {
       const bv = st.ballVel, dv = Math.hypot(bv.x - T.s.pv.x, bv.y - T.s.pv.y); T.s.pv = { x: bv.x, y: bv.y };
       if (!T.s.touch && dv > 250 && T.dist2(st.carPos, st.ballPos) < 320) { T.s.touch = true; G.slowmo(0.28, 1.6, 'CONTACTO'); Hud.toast('Golpea el <b>centro</b> de la bola para empujarla recta', 'info', 2600); burst(st.ballPos.x, st.ballPos.y, st.ballPos.z, 0xffffff, 40, 14); }
       const d = T.dist2(st.ballPos, T.s.z); return d < 340 ? true : clamp(1 - (d - 340) / 2400, 0, 0.95); } },
-  { icon: '🧊', name: 'El prisma', title: 'EL PRISMA', sub: 'Toca el prisma con la bola', ok: 'Ejercicio resuelto',
+  { icon: '11', name: 'El prisma', title: 'EL PRISMA', sub: 'Toca el prisma con la bola', ok: 'Ejercicio resuelto',
     text: 'Este es el objetivo del modo: lleva la bola hasta el **prisma**. Cuando la **bola lo toque**, se abre un **ejercicio de área de prismas**. ¡Pruébalo!', ctrls: ['accel', 'boost'],
     enter(T) { RS.cam.ballCam = true; Hud.sync(); T.car(0, -1800); T.ball(0, -600); T.s.p = T.keep(makePrism()); T.s.p.setPos(0, 1900); T.prism = T.s.p; T.s.busy = false; },
-    marker: () => [0, 1900, 900, 'PRISMA', '#ffb020'],
+    marker: () => [0, 1900, 900, 'PRISMA', '#d08a2e'],
     tick(T, dt, st) {
       if (T.s.busy) return 0.95; const b = st.ballPos;
       if (T.s.p.hit(b.x, b.y, b.z)) { T.s.busy = true; guidedExercise(T); }
@@ -1029,21 +1029,21 @@ const LESSONS = [
 ];
 
 async function guidedExercise(T) {
-  const p = T.s.p; p.flash = 1; shock(p.x, p.y, 0xffb020, 1100, 1); burst(p.x, p.y, 400, 0xffb020, 100, 28); Snd.boom();
+  const p = T.s.p; p.flash = 1; shock(p.x, p.y, 0xd08a2e, 1100, 1); burst(p.x, p.y, 400, 0xd08a2e, 100, 28); Snd.boom();
   Hud.marker(null); T.setCtrls(null); G.slowmo(0.12, 0.9, '¡TOCASTE EL PRISMA!'); await sleep(900);
   RS.sim.paused = true; G.endSlow(); T.say('¡Se abre el ejercicio! Te voy a enseñar cada herramienta paso a paso. Haz lo que te indico.');
   const ex = Ex.tutorial(), done = Panel.show(ex, { tutorial: true });
   await sleep(700);
   const R = () => Panel.refs, once = (ev, pred) => new Promise((res) => { Panel.on(ev, (d) => { if (!pred || pred(d)) res(d); }); });
   let waiting = null;
-  const stepBtn = (get, text, btn = 'Entendido ▶') => new Promise((res) => Tour.show(get, text, { button: btn, onButton: res }));
+  const stepBtn = (get, text, btn = 'Entendido') => new Promise((res) => Tour.show(get, text, { button: btn, onButton: res }));
   const stepWait = (get, text, ev, pred, skipLabel = 'Omitir este paso') => new Promise((res) => { Tour.show(get, text, { skip: { label: skipLabel, fn: res } }); Panel.on(ev, (d) => { if (!pred || pred(d)) res(); }); });
   try {
     await stepBtn(() => R().statement, 'Primero **lee el enunciado**. Aquí está el problema y los datos que necesitas.');
     await stepWait(() => R().viewerBox, '**Arrastra** el prisma con el ratón o el dedo para **girarlo** y verlo por todos lados.', 'rotate');
     await stepWait(() => R().viewer.el, '**Toca las caras** del prisma para marcarlas. Un prisma rectangular tiene **6 caras**: ¡márcalas todas!', 'mark', (n) => n >= 6);
     await stepWait(() => R().unfoldBtn, 'Pulsa **DESPLEGAR**: el prisma se abre y verás sus 6 caras planas con sus medidas. ¿Ves los **3 pares de caras iguales**?', 'unfold');
-    await stepBtn(() => R().formulas, 'En **FÓRMULAS** tienes lo que necesitas: <b>Área total = 2 × (a·b + a·c + b·c)</b>.', 'Siguiente ▶');
+    await stepBtn(() => R().formulas, 'En **FÓRMULAS** tienes lo que necesitas: <b>Área total = 2 × (a·b + a·c + b·c)</b>.', 'Siguiente');
     await stepWait(() => R().chips, 'Toca un dato, por ejemplo **largo = 5**, para pasarlo a la calculadora.', 'chip');
     const seq = ['2', '×', '(', '2', '0', '+', '1', '5', '+', '1', '2', ')', '='], calc = () => R().calc;
     await new Promise((res) => {
@@ -1064,7 +1064,7 @@ async function guidedExercise(T) {
     $$('.guided', R().body || document).forEach((e) => e.classList.remove('guided'));
     await stepWait(() => R().hintBtn, '¿Atascado? Pulsa **PISTA**. Hay 3 pistas, cada una te resta algunos puntos en el modo real.', 'hint');
     await stepWait(() => R().boardSec, 'La **pizarra** reemplaza al papel: dibuja o anota con el dedo o el ratón. ¡Haz un garabato!', 'stroke');
-    await stepWait(() => R().useBtn, 'Pulsa **↳ Resultado** para copiar el resultado de la calculadora a tu respuesta.', 'use');
+    await stepWait(() => R().useBtn, 'Pulsa **Usar resultado** para copiar el resultado de la calculadora a tu respuesta.', 'use');
     await stepWait(() => R().checkBtn, 'Todo listo: pulsa **COMPROBAR**. (Aquí puedes equivocarte sin castigo; en el modo real, no.)', 'submit', (d) => d.ok, 'Omitir');
   } catch (e) { console.warn(e); }
   Tour.hide();
@@ -1079,10 +1079,10 @@ function explainRules() {
   return new Promise((res) => {
     const card = h('div', { class: 'tut-card rules' }, h('div', { class: 'tc-title' }, 'RECOMPENSA Y CASTIGO'), h('div', { class: 'tc-sub' }, 'Así funciona el Modo Matemáticas'),
       h('div', { class: 'rules-grid' },
-        h('div', { class: 'rule good' }, h('div', { class: 'ri' }, '✓'), h('b', {}, 'Respuesta correcta'), h('ul', {}, h('li', {}, 'Boost infinito 20 s'), h('li', {}, 'Puntos (más con menos pistas)'), h('li', {}, 'Racha de aciertos: bonus'))),
-        h('div', { class: 'rule bad' }, h('div', { class: 'ri' }, '✘'), h('b', {}, 'Respuesta incorrecta'), h('ul', {}, h('li', {}, '🚫 Sin boost durante 12 s'), h('li', {}, '🐢 Velocidad limitada'), h('li', {}, '💔 Pierdes la racha'))),
+        h('div', { class: 'rule good' }, h('div', { class: 'ri' }, 'CORRECTA'), h('b', {}, 'Respuesta correcta'), h('ul', {}, h('li', {}, 'Boost infinito 20 s'), h('li', {}, 'Puntos (más con menos pistas)'), h('li', {}, 'Racha de aciertos: bonus'))),
+        h('div', { class: 'rule bad' }, h('div', { class: 'ri' }, 'INCORRECTA'), h('b', {}, 'Respuesta incorrecta'), h('ul', {}, h('li', {}, 'Sin boost durante 12 s'), h('li', {}, 'Velocidad limitada'), h('li', {}, 'Pierdes la racha'))),
       ),
-      h('div', { class: 'tc-btns' }, h('button', { class: 'check big', type: 'button', onclick: () => { Snd.click(); card.classList.add('out'); setTimeout(() => card.remove(), 350); res(); } }, 'ENTENDIDO ▶')));
+      h('div', { class: 'tc-btns' }, h('button', { class: 'check big', type: 'button', onclick: () => { Snd.click(); card.classList.add('out'); setTimeout(() => card.remove(), 350); res(); } }, 'ENTENDIDO')));
     document.body.append(card); requestAnimationFrame(() => card.classList.add('in'));
   });
 }
@@ -1100,11 +1100,11 @@ const MathMode = {
     this.prism.setPos(x, y); this.start0 = { x: 0, y: -2300 }; this.ball0 = { x: Math.round(rand(-500, 500)), y: -1300 };
     G.placeCar(this.start0.x, this.start0.y, Math.PI / 2); G.placeBall(this.ball0.x, this.ball0.y);
     if (this.s.punishT <= 0 && this.s.rewardT <= 0) G.boost(100);
-    Hud.objective('🧊', 'LLEVA LA BOLA AL PRISMA', `Ronda ${this.s.round} · Nivel ${level}`); Hud.progress(0); this.renderScore();
+    Hud.objective('AT', 'LLEVA LA BOLA AL PRISMA', `Ronda ${this.s.round} · Nivel ${level}`); Hud.progress(0); this.renderScore();
   },
   resetRound() { if (this.s.busy) return; G.placeCar(this.start0.x, this.start0.y, Math.PI / 2); G.placeBall(this.ball0.x, this.ball0.y); Hud.toast('Ronda reiniciada', 'info', 1200); },
   level() { return clamp(1 + Math.floor(this.s.correct / 2), 1, 4); },
-  renderScore() { const s = this.s; Hud.r.score.innerHTML = `<b>${s.score}</b> <span>puntos</span> · Boost <b>${s.streak}</b> <span>racha</span> · ✓ <b>${s.correct}</b>`; },
+  renderScore() { const s = this.s; Hud.r.score.innerHTML = `<b>${s.score}</b> <span>puntos</span> · Boost <b>${s.streak}</b> <span>racha</span> · <span>aciertos</span> <b>${s.correct}</b>`; },
   controls(ctl) { if (this.s.punishT > 0) ctl.boost = false; },
   update(dt, st) {
     const s = this.s; if (s.busy) return;
@@ -1117,19 +1117,19 @@ const MathMode = {
     s.accum += dt; if (s.accum > 0.2) { s.accum = 0; this.renderStatus(); }
     const b = st.ballPos, p = this.prism, d = Math.hypot(b.x - p.x, b.y - p.y), dm = Math.round(d * M);
     Hud.progress(clamp(1 - d / 4600, 0, 0.95)); Hud.r.s.innerHTML = `Ronda ${s.round} · Nivel ${this.level()} · Distancia de la bola: <b>${dm} m</b>`;
-    Hud.marker(p.x, p.y, p.sz * 0.6, 'PRISMA · ' + dm + ' m', '#ffb020');
+    Hud.marker(p.x, p.y, p.sz * 0.6, 'PRISMA · ' + dm + ' m', '#d08a2e');
     if (Math.abs(b.x) > 4300 || Math.abs(b.y) > 4950 || b.z > 1900 || b.z < -100) { G.placeBall(this.ball0.x, this.ball0.y); Hud.toast('Bola fuera: recolocada', 'info', 1400); }
     if (p.hit(b.x, b.y, b.z)) this.onHit();
   },
   renderStatus() {
     const s = this.s, el = Hud.r.status; let html = '';
     if (s.rewardT > 0) html += `<div class="chip good">Boost BOOST INFINITO <b>${Math.ceil(s.rewardT)}s</b></div>`;
-    if (s.punishT > 0) html += `<div class="chip bad">🚫 CASTIGO · sin boost y lento <b>${Math.ceil(s.punishT)}s</b></div>`;
+    if (s.punishT > 0) html += `<div class="chip bad">CASTIGO · sin boost y lento <b>${Math.ceil(s.punishT)}s</b></div>`;
     if (el.innerHTML !== html) el.innerHTML = html;
   },
   async onHit() {
     const s = this.s, p = this.prism; s.busy = true; Hud.marker(null);
-    p.flash = 1; shock(p.x, p.y, 0xffb020, 1100, 1); burst(p.x, p.y, 400, 0xffb020, 100, 28); Snd.boom();
+    p.flash = 1; shock(p.x, p.y, 0xd08a2e, 1100, 1); burst(p.x, p.y, 400, 0xd08a2e, 100, 28); Snd.boom();
     G.slowmo(0.12, 0.9, '¡TOCASTE EL PRISMA!'); await sleep(900); G.endSlow(); RS.sim.paused = true;
     const ex = Ex.generate(this.level()), r = await Panel.show(ex, { round: s.round, streak: s.streak });
     RS.sim.paused = false; RS.keys.clear(); this.apply(r);
@@ -1138,7 +1138,7 @@ const MathMode = {
     const s = this.s, st = RS.getState();
     if (r.correct) {
       const pts = r.points + s.streak * 10; s.score += pts; s.streak++; s.correct++; s.rewardT = 20; s.punishT = 0; RS.setInfBoost(true); G.boost(100);
-      Confetti.burst(160, 1); Snd.chime(); shock(st.carPos.x, st.carPos.y, 0x7dff9a, 1000, 1);
+      Confetti.burst(160, 1); Snd.chime(); shock(st.carPos.x, st.carPos.y, 0x86a368, 1000, 1);
       Hud.toast(`<b>¡RECOMPENSA!</b> Boost infinito 20 s · +${pts} puntos`, 'good', 3200);
     } else {
       s.score = Math.max(0, s.score - 25); s.streak = 0; s.punishT = 12; s.rewardT = 0; RS.setInfBoost(false); G.boost(0);
