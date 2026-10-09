@@ -176,7 +176,16 @@
   background: linear-gradient(180deg, rgba(50, 190, 135, .98), rgba(24, 130, 90, .98));
 }
 
-
+#garage-button {
+  bottom: calc(37.5% + 2 * (var(--bh) + var(--bgap)));
+  animation-delay: .1s;
+  background: linear-gradient(180deg, rgba(90, 70, 200, .96), rgba(50, 35, 140, .96));
+}
+#garage-button::after { background: rgba(60, 40, 160, .45); }
+#garage-button:hover,
+#garage-button:focus-visible {
+  background: linear-gradient(180deg, rgba(110, 85, 220, .98), rgba(65, 45, 160, .98));
+}
 
 #math-button {
   bottom: calc(37.5% + 3 * (var(--bh) + var(--bgap)));
