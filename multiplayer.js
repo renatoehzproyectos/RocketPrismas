@@ -210,7 +210,7 @@
     if (!document.getElementById('mp-debug')) {
       const d = document.createElement('div');
       d.id = 'mp-debug';
-      d.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:90;max-width:min(420px,92vw);padding:8px 12px;background:rgba(0,0,0,.82);color:#8f8;font:12px ui-monospace,monospace;border-radius:4px;pointer-events:none;white-space:pre-wrap;line-height:1.35;border:1px solid rgba(100,200,120,.35);';
+      d.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:90;max-width:min(420px,92vw);padding:8px 12px;background:rgba(0,0,0,.82);color:#8f8;font:12px ui-monospace,monospace;border-radius:4px;pointer-events:none;white-space:pre-wrap;line-height:1.35;border:1px solid rgba(100,200,120,.35);display:none;';
       d.textContent = 'mp: idle';
       document.body.appendChild(d);
     }
