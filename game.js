@@ -823,35 +823,19 @@ async function main() {
           child.material = triplanar(new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.9, metalness: 0.0 }), rubberTex, { scale: 5 / Math.max(bs.x, bs.y, bs.z, 1e-3), amount: 0.9, space: 'object' });
         } else if (/Body|Paint/i.test(name)) {
           // Body + Paint: superficie que recibe el decal / color base
-          // Los UVs del GLB están en [-1,1]; se normalizan a [0,1] para poder aplicar texturas RL.
-          const geo = child.geometry;
-          if (geo && geo.attributes && geo.attributes.uv && !geo.userData._uvNorm) {
-            const uv = geo.attributes.uv;
-            for (let i = 0; i < uv.count; i++) {
-              uv.setXY(i, uv.getX(i) * 0.5 + 0.5, uv.getY(i) * 0.5 + 0.5);
-            }
-            uv.needsUpdate = true;
-            geo.userData._uvNorm = true;
-          }
+          // OJO: los UV de Body/Paint en este GLB son todos (0,1) (sin mapeo): el decal se proyecta por posición (ver attachSkinProjection).
           const bm = keepHue(new THREE.MeshPhysicalMaterial({
             normalMap: bodyNormal, normalScale: new THREE.Vector2(0.5, 0.5),
             color: 0xff4a00, emissive: 0x2a0a00, roughness: 0.3, metalness: 0.15,
             clearcoat: 1.0, clearcoatRoughness: 0.08, envMap: carEnvMap, envMapIntensity: 0.22,
           }), 0.0, USE_PEARL);
+          attachSkinProjection(bm, child.geometry);
           child.material = bm;
           bodyMeshes.push(child);
         } else {
           // Chasis / molduras: plástico negro semi-mate con detalle
           child.geometry.computeBoundingBox();
           const cs = child.geometry.boundingBox.getSize(new THREE.Vector3());
-          if (child.geometry && child.geometry.attributes && child.geometry.attributes.uv && !child.geometry.userData._uvNorm) {
-            const uv = child.geometry.attributes.uv;
-            for (let i = 0; i < uv.count; i++) {
-              uv.setXY(i, uv.getX(i) * 0.5 + 0.5, uv.getY(i) * 0.5 + 0.5);
-            }
-            uv.needsUpdate = true;
-            child.geometry.userData._uvNorm = true;
-          }
           const cm = triplanar(new THREE.MeshStandardMaterial({ normalMap: bodyNormal, color: 0x1a1a1d, roughness: 0.32, metalness: 0.3, envMap: carEnvMap, envMapIntensity: 0.18 }), carbonTex, { scale: 14 / Math.max(cs.x, cs.y, cs.z, 1e-3), amount: 1.0, space: 'object' });
           child.material = cm;
           chassisMeshes.push(child);
@@ -887,6 +871,36 @@ async function main() {
     if (carSkinAPI._pending) { carSkinAPI.apply(carSkinAPI._pending); carSkinAPI._pending = null; }
   })();
 
+  // Proyección triplanar (espacio objeto, normalizada al bbox) para decals: el GLB no trae UV útiles en Body/Paint.
+  function attachSkinProjection(mat, geo) {
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox;
+    const U = {
+      uSkMin: { value: bb.min.clone() }, uSkSize: { value: bb.getSize(new THREE.Vector3()) },
+      uSkTex: { value: null }, uSkEm: { value: null }, uSkOn: { value: 0 }, uSkEmOn: { value: 0 },
+    };
+    mat.userData.sk = U;
+    const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
+    mat.customProgramCacheKey = () => prevKey.call(mat) + '_skproj';
+    mat.onBeforeCompile = shader => {
+      if (prev) prev(shader);
+      Object.assign(shader.uniforms, U);
+      shader.vertexShader = shader.vertexShader
+        .replace('void main() {', 'varying vec3 vSkP; varying vec3 vSkN;\nvoid main() {')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSkP = position; vSkN = normalize(normal);');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('void main() {',
+          'uniform vec3 uSkMin; uniform vec3 uSkSize; uniform sampler2D uSkTex; uniform sampler2D uSkEm; uniform float uSkOn; uniform float uSkEmOn;\n' +
+          'varying vec3 vSkP; varying vec3 vSkN;\n' +
+          'vec3 skSample(sampler2D t) {\n' +
+          '  vec3 q = (vSkP - uSkMin) / uSkSize; vec3 w = pow(abs(vSkN), vec3(4.0)); w /= (w.x + w.y + w.z + 1e-5);\n' +
+          '  vec3 c = texture2D(t, vec2(q.y, q.z)).rgb * w.x + texture2D(t, vec2(q.x, q.z)).rgb * w.y + texture2D(t, vec2(q.x, q.y)).rgb * w.z;\n' +
+          '  return pow(c, vec3(2.2));\n}\nvoid main() {')
+        .replace('#include <map_fragment>', '#include <map_fragment>\nif (uSkOn > 0.5) diffuseColor.rgb *= skSample(uSkTex);')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nif (uSkEmOn > 0.5) totalEmissiveRadiance *= skSample(uSkEm);');
+    };
+    mat.needsUpdate = true;
+  }
   // ---------- Personalización de auto (decals / skins) ----------
   const carSkinAPI = {
     ready: false, bodyMeshes: [], chassisMeshes: [], bodyNormal: null,
@@ -924,42 +938,28 @@ async function main() {
       loadSkinTex(skin.normal),
       loadSkinTex(skin.emissive),
     ]);
-    // Body + Paint: aplicar diffuse del decal
+    // Body + Paint: decal proyectado por posición (uniforms del shader)
     for (const mesh of carSkinAPI.bodyMeshes) {
-      const m = mesh.material;
+      const m = mesh.material, U = m.userData.sk;
+      m.map = null; m.emissiveMap = null;
       if (bodyTex) {
-        m.map = bodyTex;
+        U.uSkTex.value = bodyTex; U.uSkOn.value = 1;
         m.color.setHex(0xffffff);
         if (emissiveTex) {
-          m.emissiveMap = emissiveTex;
-          m.emissive.setHex(0xffffff);
-          m.emissiveIntensity = 1.6;
+          U.uSkEm.value = emissiveTex; U.uSkEmOn.value = 1;
+          m.emissive.setHex(0xffffff); m.emissiveIntensity = 1.6;
         } else {
-          m.emissiveMap = null;
-          m.emissive.setHex(0x000000);
-          m.emissiveIntensity = 0;
+          U.uSkEmOn.value = 0; m.emissive.setHex(0x000000); m.emissiveIntensity = 0;
         }
-        if (normalTex) {
-          m.normalMap = normalTex;
-          m.normalScale.set(1.0, 1.0);
-        } else {
-          m.normalMap = carSkinAPI.bodyNormal;
-          m.normalScale.set(0.5, 0.5);
-        }
-        m.roughness = 0.35;
-        m.metalness = 0.12;
-        m.envMapIntensity = 0.35;
+        m.normalMap = null; // sin UV válidos no hay normal map posible
+        m.roughness = 0.35; m.metalness = 0.12; m.envMapIntensity = 0.35;
       } else {
-        m.map = null;
-        m.emissiveMap = null;
+        U.uSkOn.value = 0; U.uSkEmOn.value = 0;
         m.color.setHex(0xff4a00);
-        m.emissive.setHex(0x2a0a00);
-        m.emissiveIntensity = 1;
+        m.emissive.setHex(0x2a0a00); m.emissiveIntensity = 1;
         m.normalMap = carSkinAPI.bodyNormal;
         m.normalScale.set(0.5, 0.5);
-        m.roughness = 0.3;
-        m.metalness = 0.15;
-        m.envMapIntensity = 0.22;
+        m.roughness = 0.3; m.metalness = 0.15; m.envMapIntensity = 0.22;
       }
       m.needsUpdate = true;
     }
