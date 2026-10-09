@@ -802,8 +802,8 @@ async function main() {
       return match;
     });
 
-    const bodyMats = [];
-    const chassisMats = [];
+    const bodyMeshes = [];   // meshes con material Body o Paint (reciben el decal)
+    const chassisMeshes = []; // meshes de chasis
     if (body) {
       source.traverse(child => {
         if (!child.isMesh) return;
@@ -821,18 +821,40 @@ async function main() {
           child.geometry.computeBoundingBox();
           const bs = child.geometry.boundingBox.getSize(new THREE.Vector3());
           child.material = triplanar(new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: 0.9, metalness: 0.0 }), rubberTex, { scale: 5 / Math.max(bs.x, bs.y, bs.z, 1e-3), amount: 0.9, space: 'object' });
-        } else if (/Body/i.test(name)) {
-          // Anodized Pearl: base naranja, reflejos y brillo perlado rosado
-          const bm = keepHue(new THREE.MeshPhysicalMaterial({ normalMap: bodyNormal, normalScale: new THREE.Vector2(0.5, 0.5), color: 0xff4a00, emissive: 0x2a0a00, roughness: 0.3, metalness: 0.15, clearcoat: 1.0, clearcoatRoughness: 0.08, envMap: carEnvMap, envMapIntensity: 0.22 }), 0.0, USE_PEARL);
+        } else if (/Body|Paint/i.test(name)) {
+          // Body + Paint: superficie que recibe el decal / color base
+          // Los UVs del GLB están en [-1,1]; se normalizan a [0,1] para poder aplicar texturas RL.
+          const geo = child.geometry;
+          if (geo && geo.attributes && geo.attributes.uv && !geo.userData._uvNorm) {
+            const uv = geo.attributes.uv;
+            for (let i = 0; i < uv.count; i++) {
+              uv.setXY(i, uv.getX(i) * 0.5 + 0.5, uv.getY(i) * 0.5 + 0.5);
+            }
+            uv.needsUpdate = true;
+            geo.userData._uvNorm = true;
+          }
+          const bm = keepHue(new THREE.MeshPhysicalMaterial({
+            normalMap: bodyNormal, normalScale: new THREE.Vector2(0.5, 0.5),
+            color: 0xff4a00, emissive: 0x2a0a00, roughness: 0.3, metalness: 0.15,
+            clearcoat: 1.0, clearcoatRoughness: 0.08, envMap: carEnvMap, envMapIntensity: 0.22,
+          }), 0.0, USE_PEARL);
           child.material = bm;
-          bodyMats.push(bm);
+          bodyMeshes.push(child);
         } else {
           // Chasis / molduras: plástico negro semi-mate con detalle
           child.geometry.computeBoundingBox();
           const cs = child.geometry.boundingBox.getSize(new THREE.Vector3());
+          if (child.geometry && child.geometry.attributes && child.geometry.attributes.uv && !child.geometry.userData._uvNorm) {
+            const uv = child.geometry.attributes.uv;
+            for (let i = 0; i < uv.count; i++) {
+              uv.setXY(i, uv.getX(i) * 0.5 + 0.5, uv.getY(i) * 0.5 + 0.5);
+            }
+            uv.needsUpdate = true;
+            child.geometry.userData._uvNorm = true;
+          }
           const cm = triplanar(new THREE.MeshStandardMaterial({ normalMap: bodyNormal, color: 0x1a1a1d, roughness: 0.32, metalness: 0.3, envMap: carEnvMap, envMapIntensity: 0.18 }), carbonTex, { scale: 14 / Math.max(cs.x, cs.y, cs.z, 1e-3), amount: 1.0, space: 'object' });
           child.material = cm;
-          chassisMats.push(cm);
+          chassisMeshes.push(child);
         }
       });
       const box = new THREE.Box3().setFromObject(source);
@@ -856,22 +878,26 @@ async function main() {
         });
       });
     }
-    // Exponer materiales para el modo de personalización
-    carSkinAPI.bodyMats = bodyMats;
-    carSkinAPI.chassisMats = chassisMats;
+    carSkinAPI.bodyMeshes = bodyMeshes;
+    carSkinAPI.chassisMeshes = chassisMeshes;
     carSkinAPI.bodyNormal = bodyNormal;
+    carSkinAPI.carbonTex = carbonTex;
+    carSkinAPI.carEnvMap = carEnvMap;
     carSkinAPI.ready = true;
     if (carSkinAPI._pending) { carSkinAPI.apply(carSkinAPI._pending); carSkinAPI._pending = null; }
   })();
 
   // ---------- Personalización de auto (decals / skins) ----------
-  const carSkinAPI = { ready: false, bodyMats: [], chassisMats: [], bodyNormal: null, current: 'default', _pending: null, _cache: {} };
+  const carSkinAPI = {
+    ready: false, bodyMeshes: [], chassisMeshes: [], bodyNormal: null,
+    carbonTex: null, carEnvMap: null, current: 'default', _pending: null, _cache: {},
+  };
   const SKINS = [
-    { id: 'default', name: 'Default', body: null, chassis: null, normal: null, thumb: null, color: 0xff4a00 },
-    { id: 'mrl', name: 'MRL Fennec', body: 'assets/skins/MRLFen.png', chassis: 'assets/skins/fennecEng.png', normal: null, thumb: 'assets/skins/MRLFen.png', color: 0xffffff },
-    { id: 'haunter', name: 'Haunter', body: 'assets/skins/Haunter_D.png', chassis: null, normal: null, thumb: 'assets/skins/Haunter_D.png', color: 0xffffff },
-    { id: 'lava', name: 'Lava', body: 'assets/skins/87.png', chassis: null, normal: 'assets/skins/Normal.png', thumb: 'assets/skins/87.png', color: 0xffffff },
-    { id: 'crystal', name: 'Crystal', body: 'assets/skins/crystal_fen.png', chassis: null, normal: null, thumb: 'assets/skins/crystal_fen.png', color: 0xffffff },
+    { id: 'default', name: 'Default', body: null, chassis: null, normal: null, thumb: null },
+    { id: 'mrl', name: 'MRL Fennec', body: 'assets/skins/MRLFen.png', chassis: 'assets/skins/fennecEng.png', normal: null, thumb: 'assets/skins/MRLFen.png' },
+    { id: 'haunter', name: 'Haunter', body: 'assets/skins/Haunter_D.png', chassis: null, normal: null, thumb: 'assets/skins/Haunter_D.png' },
+    { id: 'lava', name: 'Lava', body: 'assets/skins/87.png', chassis: null, normal: 'assets/skins/Normal.png', thumb: 'assets/skins/87.png' },
+    { id: 'crystal', name: 'Crystal', body: 'assets/skins/crystal_fen.png', chassis: null, normal: null, thumb: 'assets/skins/crystal_fen.png' },
   ];
   function loadSkinTex(url) {
     if (!url) return Promise.resolve(null);
@@ -880,6 +906,7 @@ async function main() {
       const t = new THREE.TextureLoader().load(url, () => {
         t.encoding = THREE.sRGBEncoding;
         t.flipY = false;
+        t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
         t.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
         carSkinAPI._cache[url] = t;
         resolve(t);
@@ -896,28 +923,58 @@ async function main() {
       loadSkinTex(skin.chassis),
       loadSkinTex(skin.normal),
     ]);
-    for (const m of carSkinAPI.bodyMats) {
+    // Body + Paint: aplicar diffuse del decal
+    for (const mesh of carSkinAPI.bodyMeshes) {
+      const m = mesh.material;
       if (bodyTex) {
         m.map = bodyTex;
         m.color.setHex(0xffffff);
         m.emissive.setHex(0x000000);
-        if (normalTex) { m.normalMap = normalTex; m.normalScale.set(1, 1); }
-        else { m.normalMap = carSkinAPI.bodyNormal; m.normalScale.set(0.5, 0.5); }
+        m.emissiveIntensity = 0;
+        if (normalTex) {
+          m.normalMap = normalTex;
+          m.normalScale.set(1.0, 1.0);
+        } else {
+          m.normalMap = carSkinAPI.bodyNormal;
+          m.normalScale.set(0.5, 0.5);
+        }
+        m.roughness = 0.35;
+        m.metalness = 0.12;
+        m.envMapIntensity = 0.35;
       } else {
         m.map = null;
         m.color.setHex(0xff4a00);
         m.emissive.setHex(0x2a0a00);
+        m.emissiveIntensity = 1;
         m.normalMap = carSkinAPI.bodyNormal;
         m.normalScale.set(0.5, 0.5);
+        m.roughness = 0.3;
+        m.metalness = 0.15;
+        m.envMapIntensity = 0.22;
       }
       m.needsUpdate = true;
     }
-    for (const m of carSkinAPI.chassisMats) {
+    // Chasis: si el skin trae diffuse de chasis, material UV-mapped; si no, volver a triplanar carbono
+    for (const mesh of carSkinAPI.chassisMeshes) {
       if (chassisTex) {
-        m.map = chassisTex;
-        m.color.setHex(0xffffff);
+        mesh.material = new THREE.MeshStandardMaterial({
+          map: chassisTex, color: 0xffffff, roughness: 0.4, metalness: 0.25,
+          normalMap: carSkinAPI.bodyNormal, normalScale: new THREE.Vector2(0.4, 0.4),
+          envMap: carSkinAPI.carEnvMap, envMapIntensity: 0.25,
+        });
+      } else {
+        const cs = mesh.geometry.boundingBox
+          ? mesh.geometry.boundingBox.getSize(new THREE.Vector3())
+          : new THREE.Vector3(1, 1, 1);
+        mesh.material = triplanar(
+          new THREE.MeshStandardMaterial({
+            normalMap: carSkinAPI.bodyNormal, color: 0x1a1a1d, roughness: 0.32, metalness: 0.3,
+            envMap: carSkinAPI.carEnvMap, envMapIntensity: 0.18,
+          }),
+          carSkinAPI.carbonTex,
+          { scale: 14 / Math.max(cs.x, cs.y, cs.z, 1e-3), amount: 1.0, space: 'object' }
+        );
       }
-      m.needsUpdate = true;
     }
   };
   try {
