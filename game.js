@@ -896,7 +896,7 @@ async function main() {
     { id: 'default', name: 'Default', body: null, chassis: null, normal: null, thumb: null },
     { id: 'mrl', name: 'MRL Fennec', body: 'assets/skins/MRLFen.png', chassis: 'assets/skins/fennecEng.png', normal: null, thumb: 'assets/skins/MRLFen.png' },
     { id: 'haunter', name: 'Haunter', body: 'assets/skins/Haunter_D.png', chassis: null, normal: null, thumb: 'assets/skins/Haunter_D.png' },
-    { id: 'lava', name: 'Lava', body: 'assets/skins/87.png', chassis: null, normal: 'assets/skins/Normal.png', thumb: 'assets/skins/87.png' },
+    { id: 'lava', name: 'Lava', body: 'assets/skins/lava_d.png', emissive: 'assets/skins/lava_e.png', chassis: null, normal: null, thumb: 'assets/skins/lava_d.png' },
     { id: 'crystal', name: 'Crystal', body: 'assets/skins/crystal_fen.png', chassis: null, normal: null, thumb: 'assets/skins/crystal_fen.png' },
   ];
   function loadSkinTex(url) {
@@ -918,10 +918,11 @@ async function main() {
     const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
     carSkinAPI.current = skin.id;
     try { localStorage.setItem('carSkin', skin.id); } catch (_) {}
-    const [bodyTex, chassisTex, normalTex] = await Promise.all([
+    const [bodyTex, chassisTex, normalTex, emissiveTex] = await Promise.all([
       loadSkinTex(skin.body),
       loadSkinTex(skin.chassis),
       loadSkinTex(skin.normal),
+      loadSkinTex(skin.emissive),
     ]);
     // Body + Paint: aplicar diffuse del decal
     for (const mesh of carSkinAPI.bodyMeshes) {
@@ -929,8 +930,15 @@ async function main() {
       if (bodyTex) {
         m.map = bodyTex;
         m.color.setHex(0xffffff);
-        m.emissive.setHex(0x000000);
-        m.emissiveIntensity = 0;
+        if (emissiveTex) {
+          m.emissiveMap = emissiveTex;
+          m.emissive.setHex(0xffffff);
+          m.emissiveIntensity = 1.6;
+        } else {
+          m.emissiveMap = null;
+          m.emissive.setHex(0x000000);
+          m.emissiveIntensity = 0;
+        }
         if (normalTex) {
           m.normalMap = normalTex;
           m.normalScale.set(1.0, 1.0);
@@ -943,6 +951,7 @@ async function main() {
         m.envMapIntensity = 0.35;
       } else {
         m.map = null;
+        m.emissiveMap = null;
         m.color.setHex(0xff4a00);
         m.emissive.setHex(0x2a0a00);
         m.emissiveIntensity = 1;
